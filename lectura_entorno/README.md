@@ -24,7 +24,18 @@ Del tablero también: nivel de riesgo y horizonte de tiempo (Grupo 2), tipo de s
 (Grupo 5: panel, alertas de riesgo alto o vencidas, informe imprimible y CSV) y vigencia (Grupo 6).
 
 ## PythonAnywhere
-Subir la carpeta, crear web app Flask (manual config), WSGI: `from app import app as application`,
-y definir la variable de entorno SECRET_KEY. Para una base de datos persistente, configurar `DB` en `app.py`
-con una ruta dentro del espacio de archivos de la cuenta de PythonAnywhere; el archivo SQLite no se sincroniza
-con GitHub cuando se actualiza el código.
+Subir la carpeta y crear una web app Flask (manual config). En el archivo WSGI de PythonAnywhere, configurar
+`DB` antes de importar la aplicación, usando una ruta persistente dentro de la cuenta:
+
+```python
+import os
+os.environ["DB"] = "/home/tu_usuario/lectura_entorno/entorno.db"
+
+from app import app as application
+```
+
+Crear previamente esa carpeta desde la pestaña **Files**. La variable `SECRET_KEY` también debe definirse
+en la configuración de la web app y mantenerse secreta. En local, si `DB` no está definida, la aplicación
+continúa usando `entorno.db` junto a `app.py`. La base de datos de PythonAnywhere es independiente de la local:
+no se copian automáticamente los registros existentes y el archivo SQLite no se sincroniza con GitHub al
+actualizar el código. Para mover registros, exportarlos desde la app local e importarlos en el servidor.

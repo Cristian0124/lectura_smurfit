@@ -12,7 +12,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "cambiar-en-produccion")
 app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
-DB = os.path.join(os.path.dirname(__file__), "entorno.db")
+DB = os.environ.get("DB", os.path.join(os.path.dirname(__file__), "entorno.db"))
 
 FACTORES = ["Político", "Económico", "Social", "Tecnológico", "Ecológico", "Legal"]      # PESTEL
 AMBITOS = ["País (Colombia)", "Sector empaques/papel", "Competencia", "Proveedores", "Clientes"]  # tipo de entorno
