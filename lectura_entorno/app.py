@@ -1,18 +1,18 @@
 """Lectura de entorno - Smurfit Westrock (MVP / adelanto). Grupo 1.
 Python + Flask + SQLite. Corre local o en PythonAnywhere.
 """
-import csv, io, os, secrets, sqlite3
+import csv, io, os, secrets
 from datetime import date
 from functools import wraps
 
-from flask import (Flask, Response, abort, flash, g, redirect, render_template,
+from flask import (Flask, Response, abort, flash, redirect, render_template,
                    request, session, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
+import bd
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "cambiar-en-produccion")
 app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
-DB = os.environ.get("DB", os.path.join(os.path.dirname(__file__), "entorno.db"))
 
 FACTORES = ["Político", "Económico", "Social", "Tecnológico", "Ecológico", "Legal"]      # PESTEL
 AMBITOS = ["País (Colombia)", "Sector empaques/papel", "Competencia", "Proveedores", "Clientes"]  # tipo de entorno
@@ -149,43 +149,7 @@ def nivel(p):
     return "Alto" if p >= 15 else "Medio" if p >= 8 else "Bajo"
 
 
-# ---------- base de datos ----------
-def db():
-    if "db" not in g:
-        g.db = sqlite3.connect(DB)
-        g.db.row_factory = sqlite3.Row
-    return g.db
-
-
-@app.teardown_appcontext
-def cerrar(_):
-    c = g.pop("db", None)
-    if c:
-        c.close()
-
-
-def init_db():
-    con = sqlite3.connect(DB)
-    con.executescript("""
-    CREATE TABLE IF NOT EXISTS usuarios(id INTEGER PRIMARY KEY, usuario TEXT UNIQUE NOT NULL,
-        clave TEXT NOT NULL, rol TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS fuentes(id INTEGER PRIMARY KEY, nombre TEXT UNIQUE NOT NULL,
-        tipo TEXT NOT NULL, confiabilidad TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS senales(id INTEGER PRIMARY KEY, titulo TEXT NOT NULL, descripcion TEXT,
-        factor TEXT NOT NULL, ambito TEXT NOT NULL, tipo TEXT NOT NULL, horizonte TEXT NOT NULL,
-        fuente_id INTEGER REFERENCES fuentes(id), impacto INTEGER NOT NULL, probabilidad INTEGER NOT NULL,
-        puntaje INTEGER NOT NULL, vigencia TEXT, estado TEXT NOT NULL DEFAULT 'Nueva',
-        autor TEXT, creada TEXT DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS comentarios(id INTEGER PRIMARY KEY, senal_id INTEGER NOT NULL
-        REFERENCES senales(id), autor TEXT NOT NULL, contenido TEXT NOT NULL,
-        creado TEXT DEFAULT CURRENT_TIMESTAMP);
-    """)
-    if not con.execute("SELECT 1 FROM usuarios").fetchone():
-        for u, c, r in [("admin", "admin123", "admin"), ("analista", "analista123", "analista"),
-                        ("directivo", "decisor123", "decisor")]:
-            con.execute("INSERT INTO usuarios(usuario,clave,rol) VALUES(?,?,?)", (u, generate_password_hash(c), r))
-    con.commit()
-    con.close()
+app.teardown_appcontext(bd.cerrar_conexion)
 
 
 # ---------- seguridad: CSRF, login y roles ----------
@@ -217,7 +181,7 @@ def requiere(*roles):
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        u = db().execute("SELECT * FROM usuarios WHERE usuario=?", (request.form["usuario"].strip(),)).fetchone()
+        u = bd.buscar_usuario(request.form["usuario"].strip())
         if u and check_password_hash(u["clave"], request.form["clave"]):
             session.clear()
             session["usuario"], session["rol"] = u["usuario"], u["rol"]
@@ -234,16 +198,13 @@ def salir():
 
 # ---------- leer: tablas, alertas e informes ----------
 def consulta():
-    sql = """SELECT s.*, f.nombre AS fuente, f.confiabilidad AS conf FROM senales s
-             LEFT JOIN fuentes f ON f.id=s.fuente_id WHERE 1=1"""
-    args = []
-    if session["rol"] == "decisor":                 # el decisor solo ve lo publicado
-        sql += " AND s.estado='Publicada'"
-    for campo, lista in (("factor", FACTORES), ("horizonte", HORIZONTES)):
-        v = request.args.get(campo, "")
-        if v in lista:
-            sql += f" AND s.{campo}=?"; args.append(v)
-    return db().execute(sql + " ORDER BY s.puntaje DESC, s.id DESC", args).fetchall()
+    factor = request.args.get("factor", "")
+    horizonte = request.args.get("horizonte", "")
+    if factor not in FACTORES:
+        factor = None
+    if horizonte not in HORIZONTES:
+        horizonte = None
+    return bd.consultar_senales(session["rol"], factor, horizonte)
 
 
 @app.route("/")
@@ -267,8 +228,7 @@ def pestel():
     if elegido not in [d["nombre"] for d in PESTEL]:
         elegido = "Político"
     dimension = next(d for d in PESTEL if d["nombre"] == elegido)
-    conteos = {d["nombre"]: db().execute("SELECT COUNT(*) FROM senales WHERE factor=?", (d["nombre"],)).fetchone()[0]
-               for d in PESTEL}
+    conteos = {d["nombre"]: bd.contar_senales_por_factor(d["nombre"]) for d in PESTEL}
     return render_template("pestel.html", dimensiones=PESTEL, dimension=dimension, conteos=conteos)
 
 
@@ -306,7 +266,7 @@ def leer_form():
 
 
 def vista_form(s, comentarios=None):
-    fuentes = db().execute("SELECT * FROM fuentes ORDER BY nombre").fetchall()
+    fuentes = bd.listar_fuentes()
     return render_template("form.html", s=s, fuentes=fuentes, factores=FACTORES, ambitos=AMBITOS, tipos=TIPOS,
                            horizontes=HORIZONTES, estados=ESTADOS, comentarios=comentarios or [])
 
@@ -315,10 +275,7 @@ def vista_form(s, comentarios=None):
 @requiere("admin", "analista")
 def nueva():
     if request.method == "POST":
-        db().execute("""INSERT INTO senales(titulo,descripcion,factor,ambito,tipo,horizonte,fuente_id,
-                        impacto,probabilidad,puntaje,vigencia,autor) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
-                     leer_form() + (session["usuario"],))
-        db().commit()
+        bd.registrar_senal(leer_form(), session["usuario"])
         flash("Señal registrada.")
         return redirect(url_for("panel"))
     return vista_form(None)
@@ -327,28 +284,21 @@ def nueva():
 @app.route("/senal/<int:sid>/editar", methods=["GET", "POST"])
 @requiere("admin", "analista")
 def editar(sid):
-    s = db().execute("SELECT * FROM senales WHERE id=?", (sid,)).fetchone() or abort(404)
+    s = bd.buscar_senal(sid) or abort(404)
     if request.method == "POST":
         if request.form.get("accion") == "comentar":
             contenido = request.form.get("contenido", "").strip()
             if not contenido or len(contenido) > 2000:
                 abort(400)
-            db().execute("INSERT INTO comentarios(senal_id,autor,contenido) VALUES(?,?,?)",
-                         (sid, session["usuario"], contenido))
-            db().commit()
+            bd.agregar_comentario(sid, session["usuario"], contenido)
             flash("Comentario agregado.")
             return redirect(url_for("editar", sid=sid))
         if request.form["estado"] not in ESTADOS:
             abort(400)
-        db().execute("""UPDATE senales SET titulo=?,descripcion=?,factor=?,ambito=?,tipo=?,horizonte=?,
-                        fuente_id=?,impacto=?,probabilidad=?,puntaje=?,vigencia=?,estado=? WHERE id=?""",
-                     leer_form() + (request.form["estado"], sid))
-        db().commit()
+        bd.actualizar_senal(sid, leer_form(), request.form["estado"])
         flash("Señal actualizada.")
         return redirect(url_for("panel"))
-    comentarios = db().execute(
-        "SELECT autor,contenido,creado FROM comentarios WHERE senal_id=? ORDER BY id", (sid,)
-    ).fetchall()
+    comentarios = bd.listar_comentarios(sid)
     return vista_form(s, comentarios)
 
 
@@ -360,14 +310,11 @@ def fuentes():
         if request.form["confiabilidad"] not in CONFIABILIDAD:
             abort(400)
         try:
-            db().execute("INSERT INTO fuentes(nombre,tipo,confiabilidad) VALUES(?,?,?)",
-                         (request.form["nombre"].strip(), request.form["tipo"].strip(), request.form["confiabilidad"]))
-            db().commit()
+            bd.agregar_fuente(request.form["nombre"].strip(), request.form["tipo"].strip(), request.form["confiabilidad"])
             flash("Fuente agregada.")
-        except sqlite3.IntegrityError:
+        except bd.DuplicadoError:
             flash("Esa fuente ya existe.")
-    return render_template("fuentes.html", lista=db().execute("SELECT * FROM fuentes ORDER BY nombre").fetchall(),
-                           niveles=CONFIABILIDAD)
+    return render_template("fuentes.html", lista=bd.listar_fuentes(), niveles=CONFIABILIDAD)
 
 
 @app.route("/usuarios", methods=["GET", "POST"])
@@ -378,17 +325,18 @@ def usuarios():
             flash("Rol inválido o clave menor a 8 caracteres.")
         else:
             try:
-                db().execute("INSERT INTO usuarios(usuario,clave,rol) VALUES(?,?,?)",
-                             (request.form["usuario"].strip(), generate_password_hash(request.form["clave"]),
-                              request.form["rol"]))
-                db().commit()
+                bd.agregar_usuario(
+                    request.form["usuario"].strip(),
+                    generate_password_hash(request.form["clave"]),
+                    request.form["rol"],
+                )
                 flash("Usuario creado.")
-            except sqlite3.IntegrityError:
+            except bd.DuplicadoError:
                 flash("Ese usuario ya existe.")
     return render_template("usuarios.html", roles=ROLES,
-                           lista=db().execute("SELECT usuario, rol FROM usuarios").fetchall())
+                           lista=bd.listar_usuarios())
 
 
-init_db()
+bd.inicializar_bd()
 if __name__ == "__main__":
     app.run(debug=True)
