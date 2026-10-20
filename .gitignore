@@ -1,1 +1,4 @@
 lectura_entorno/entorno.db
+lectura_entorno/.runtime/
+lectura_entorno/__pycache__/
+lectura_entorno_pythonanywhere.zip

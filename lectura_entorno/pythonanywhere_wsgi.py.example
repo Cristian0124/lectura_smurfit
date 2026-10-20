@@ -1,0 +1,24 @@
+"""Example WSGI configuration for PythonAnywhere.
+
+Copy this into the WSGI file linked from the PythonAnywhere Web tab, then
+replace the secret key before reloading the web app.
+"""
+import os
+import sys
+
+USERNAME = "cris0124"
+PROJECT_DIR = f"/home/{USERNAME}/LECTURA_ENTORNO"
+DATABASE_PATH = f"/home/{USERNAME}/.local/share/lectura_entorno/entorno.db"
+SECRET_KEY = "REEMPLAZA_POR_UNA_CLAVE_ALEATORIA_LARGA"
+
+if SECRET_KEY == "REEMPLAZA_POR_UNA_CLAVE_ALEATORIA_LARGA":
+    raise RuntimeError("Configura una SECRET_KEY estable antes de publicar.")
+
+if PROJECT_DIR not in sys.path:
+    sys.path.insert(0, PROJECT_DIR)
+
+# bd.py reads DB when it is imported, so set both values before importing app.
+os.environ["DB"] = DATABASE_PATH
+os.environ["SECRET_KEY"] = SECRET_KEY
+
+from app import app as application

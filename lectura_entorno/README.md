@@ -24,18 +24,9 @@ Del tablero también: nivel de riesgo y horizonte de tiempo (Grupo 2), tipo de s
 (Grupo 5: panel, alertas de riesgo alto o vencidas, informe imprimible y CSV) y vigencia (Grupo 6).
 
 ## PythonAnywhere
-Subir la carpeta y crear una web app Flask (manual config). En el archivo WSGI de PythonAnywhere, configurar
-`DB` antes de importar la aplicación, usando una ruta persistente dentro de la cuenta:
 
-```python
-import os
-os.environ["DB"] = "/home/tu_usuario/lectura_entorno/entorno.db"
+Guia para publicar la app y guardar la base SQLite en tu cuenta: [PYTHONANYWHERE.md](PYTHONANYWHERE.md).
 
-from app import app as application
-```
+## Inicio en Windows
 
-Crear previamente esa carpeta desde la pestaña **Files**. La variable `SECRET_KEY` también debe definirse
-en la configuración de la web app y mantenerse secreta. En local, si `DB` no está definida, la aplicación
-continúa usando `entorno.db` junto a `app.py`. La base de datos de PythonAnywhere es independiente de la local:
-no se copian automáticamente los registros existentes y el archivo SQLite no se sincroniza con GitHub al
-actualizar el código. Para mover registros, exportarlos desde la app local e importarlos en el servidor.
+Haz doble clic en `iniciar.bat`. La primera vez descarga un Python portable y Flask dentro de `.runtime` (requiere conexion a Internet); despues abre la aplicacion en http://127.0.0.1:5000.
