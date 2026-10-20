@@ -181,11 +181,6 @@ def init_db():
         for u, c, r in [("admin", "admin123", "admin"), ("analista", "analista123", "analista"),
                         ("directivo", "decisor123", "decisor")]:
             con.execute("INSERT INTO usuarios(usuario,clave,rol) VALUES(?,?,?)", (u, generate_password_hash(c), r))
-        for n, t, c in [("DANE", "Entidad oficial", "Alta"), ("Banco de la República", "Entidad oficial", "Alta"),
-                        ("Superintendencia de Industria y Comercio", "Entidad oficial", "Alta"),
-                        ("Prensa económica", "Prensa", "Media"), ("Informe sectorial", "Gremio/sector", "Media"),
-                        ("Redes sociales", "Otro", "Baja")]:
-            con.execute("INSERT INTO fuentes(nombre,tipo,confiabilidad) VALUES(?,?,?)", (n, t, c))
     con.commit()
     con.close()
 
