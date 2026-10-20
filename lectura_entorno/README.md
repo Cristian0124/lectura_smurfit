@@ -2,6 +2,8 @@
 
 Python + Flask + SQLite.
 
+Este avance incluye el apartado **Metodología PESTEL** (`/pestel`): permite explorar las seis dimensiones, consultar preguntas guía y ver cuántas señales se han registrado en cada una. El contexto incluido es una guía inicial de investigación, no un conjunto de hallazgos confirmados. La captura de información sigue siendo manual; todavía no hay conexión a APIs.
+
     pip install -r requirements.txt
     python app.py          # http://127.0.0.1:5000
 
@@ -21,4 +23,6 @@ Del tablero también: nivel de riesgo y horizonte de tiempo (Grupo 2), tipo de s
 
 ## PythonAnywhere
 Subir la carpeta, crear web app Flask (manual config), WSGI: `from app import app as application`,
-y definir la variable de entorno SECRET_KEY.
+y definir la variable de entorno SECRET_KEY. Para una base de datos persistente, configurar `DB` en `app.py`
+con una ruta dentro del espacio de archivos de la cuenta de PythonAnywhere; el archivo SQLite no se sincroniza
+con GitHub cuando se actualiza el código.
