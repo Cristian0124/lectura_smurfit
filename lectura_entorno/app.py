@@ -176,6 +176,9 @@ def init_db():
         fuente_id INTEGER REFERENCES fuentes(id), impacto INTEGER NOT NULL, probabilidad INTEGER NOT NULL,
         puntaje INTEGER NOT NULL, vigencia TEXT, estado TEXT NOT NULL DEFAULT 'Nueva',
         autor TEXT, creada TEXT DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE IF NOT EXISTS comentarios(id INTEGER PRIMARY KEY, senal_id INTEGER NOT NULL
+        REFERENCES senales(id), autor TEXT NOT NULL, contenido TEXT NOT NULL,
+        creado TEXT DEFAULT CURRENT_TIMESTAMP);
     """)
     if not con.execute("SELECT 1 FROM usuarios").fetchone():
         for u, c, r in [("admin", "admin123", "admin"), ("analista", "analista123", "analista"),
@@ -302,10 +305,10 @@ def leer_form():
             int(f["fuente_id"]) or None, imp, prob, imp * prob, f["vigencia"] or None)  # riesgo = impacto x probabilidad
 
 
-def vista_form(s):
+def vista_form(s, comentarios=None):
     fuentes = db().execute("SELECT * FROM fuentes ORDER BY nombre").fetchall()
     return render_template("form.html", s=s, fuentes=fuentes, factores=FACTORES, ambitos=AMBITOS, tipos=TIPOS,
-                           horizontes=HORIZONTES, estados=ESTADOS)
+                           horizontes=HORIZONTES, estados=ESTADOS, comentarios=comentarios or [])
 
 
 @app.route("/senal/nueva", methods=["GET", "POST"])
@@ -326,6 +329,15 @@ def nueva():
 def editar(sid):
     s = db().execute("SELECT * FROM senales WHERE id=?", (sid,)).fetchone() or abort(404)
     if request.method == "POST":
+        if request.form.get("accion") == "comentar":
+            contenido = request.form.get("contenido", "").strip()
+            if not contenido or len(contenido) > 2000:
+                abort(400)
+            db().execute("INSERT INTO comentarios(senal_id,autor,contenido) VALUES(?,?,?)",
+                         (sid, session["usuario"], contenido))
+            db().commit()
+            flash("Comentario agregado.")
+            return redirect(url_for("editar", sid=sid))
         if request.form["estado"] not in ESTADOS:
             abort(400)
         db().execute("""UPDATE senales SET titulo=?,descripcion=?,factor=?,ambito=?,tipo=?,horizonte=?,
@@ -334,7 +346,10 @@ def editar(sid):
         db().commit()
         flash("Señal actualizada.")
         return redirect(url_for("panel"))
-    return vista_form(s)
+    comentarios = db().execute(
+        "SELECT autor,contenido,creado FROM comentarios WHERE senal_id=? ORDER BY id", (sid,)
+    ).fetchall()
+    return vista_form(s, comentarios)
 
 
 # ---------- fuentes y usuarios ----------

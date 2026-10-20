@@ -14,5 +14,24 @@
  <label>Probabilidad (1-5) <input name="probabilidad" type="number" min="1" max="5" required value="{{ s.probabilidad if s else 3 }}"></label>
  <label>Vigente hasta <input name="vigencia" type="date" value="{{ s.vigencia or '' if s }}"></label>
  {% if s %}<label>Estado <select name="estado">{{ op(estados, s.estado) }}</select></label>{% endif %}
- <button>Guardar</button>
-</form>{% endblock %}
+ <button name="accion" value="actualizar">Guardar</button>
+</form>
+{% if s %}
+<section>
+ <h3>Comentarios de seguimiento</h3>
+ {% if comentarios %}
+  {% for comentario in comentarios %}<article>
+   <p><b>{{ comentario.autor }}</b> · {{ comentario.creado }}</p>
+   <p>{{ comentario.contenido }}</p>
+  </article>{% endfor %}
+ {% else %}<p>Aún no hay comentarios.</p>{% endif %}
+ <form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <label>Agregar comentario
+   <textarea name="contenido" rows="3" maxlength="2000" required></textarea>
+  </label>
+  <button name="accion" value="comentar">Comentar</button>
+ </form>
+</section>
+{% endif %}
+{% endblock %}

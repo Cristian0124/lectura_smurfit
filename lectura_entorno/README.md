@@ -4,6 +4,8 @@ Python + Flask + SQLite.
 
 Este avance incluye el apartado **Metodología PESTEL** (`/pestel`): permite explorar las seis dimensiones, consultar preguntas guía y ver cuántas señales se han registrado en cada una. El contexto incluido es una guía inicial de investigación, no un conjunto de hallazgos confirmados. La captura de información sigue siendo manual; todavía no hay conexión a APIs.
 
+En la edición de una señal, administradores y analistas pueden agregar comentarios de seguimiento. Cada comentario conserva su autor y fecha, y se guarda separado de los datos de la señal.
+
     pip install -r requirements.txt
     python app.py          # http://127.0.0.1:5000
 
