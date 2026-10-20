@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block c %}
+<h2>Informe de lectura de entorno</h2>
+<p>Smurfit Westrock · generado el {{ hoy }} · {{ senales|length }} señales ordenadas por riesgo.
+ <a href="#" class="no-imprimir" onclick="window.print();return false">Imprimir / guardar PDF</a></p>
+{% for s in senales %}
+<p><b>{{ s.titulo }}</b> — <span class="{{ nivel(s.puntaje) }}">riesgo {{ s.puntaje }} ({{ nivel(s.puntaje) }})</span><br>
+ {{ s.factor }} · {{ s.ambito }} · {{ s.tipo }} · {{ s.horizonte }}<br>{{ s.descripcion }}<br>
+ Fuente: {{ s.fuente or '-' }}{% if s.conf %} (confiabilidad {{ s.conf }}){% endif %}{% if s.vigencia %} · vigente hasta {{ s.vigencia }}{% endif %}</p>
+{% else %}<p>No hay señales para mostrar.</p>{% endfor %}{% endblock %}

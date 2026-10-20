@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block c %}
+<h2>Fuentes de información</h2>
+<table><tr><th>Fuente</th><th>Tipo</th><th>Confiabilidad</th></tr>{% for f in lista %}<tr><td>{{ f.nombre }}</td><td>{{ f.tipo }}</td><td>{{ f.confiabilidad }}</td></tr>{% endfor %}</table>
+<h3>Agregar fuente</h3>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf }}">
+ <label>Nombre <input name="nombre" required></label>
+ <label>Tipo (entidad oficial, prensa, gremio...) <input name="tipo" required></label>
+ <label>Confiabilidad <select name="confiabilidad">{% for n in niveles %}<option>{{ n }}</option>{% endfor %}</select></label>
+ <button>Agregar</button>
+</form>{% endblock %}

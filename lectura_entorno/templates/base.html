@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lectura de entorno · Smurfit Westrock</title>
+<style>
+ body{font-family:Georgia,serif;margin:0;color:#222;background:#f6f5f2}
+ header{background:#1f4d36;color:#fff;padding:10px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+ header a{color:#fff} header b{margin-right:auto}
+ main{max-width:1000px;margin:20px auto;padding:0 16px}
+ table{border-collapse:collapse;width:100%;background:#fff;display:block;overflow-x:auto}
+ th,td{border-bottom:1px solid #ddd;padding:8px;text-align:left;font-size:14px}
+ input,select,textarea,button{font:inherit;padding:6px;margin:4px 0;max-width:100%}
+ label{display:block;margin-top:8px} .msg{background:#fff3cd;padding:8px;margin-bottom:10px}
+ .alerta{background:#fde8e8;border-left:4px solid #b00020;padding:8px;margin-bottom:8px}
+ .Alto{color:#b00020;font-weight:bold} .Medio{color:#b26a00} .Bajo{color:#2e7d32}
+ @media print{header,.no-imprimir{display:none}}
+</style></head><body>
+<header><b>Lectura de entorno · Smurfit Westrock</b>
+{% if session.usuario %}
+ <a href="{{ url_for('panel') }}">Panel</a><a href="{{ url_for('informe') }}">Informe</a>
+ {% if session.rol in ('admin','analista') %}<a href="{{ url_for('nueva') }}">Registrar señal</a><a href="{{ url_for('fuentes') }}">Fuentes</a>{% endif %}
+ {% if session.rol == 'admin' %}<a href="{{ url_for('usuarios') }}">Usuarios</a>{% endif %}
+ <span>{{ session.usuario }} ({{ session.rol }})</span><a href="{{ url_for('salir') }}">Salir</a>
+{% endif %}</header>
+<main>{% for m in get_flashed_messages() %}<div class="msg">{{ m }}</div>{% endfor %}
+{% block c %}{% endblock %}</main></body></html>

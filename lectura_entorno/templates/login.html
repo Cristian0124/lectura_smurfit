@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block c %}
+<h2>Ingresar</h2>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf }}">
+ <label>Usuario <input name="usuario" required></label>
+ <label>Clave <input name="clave" type="password" required></label>
+ <button>Entrar</button>
+</form>{% endblock %}

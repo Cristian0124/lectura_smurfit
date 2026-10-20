@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block c %}
+<h2>Usuarios</h2>
+<table><tr><th>Usuario</th><th>Rol</th></tr>{% for u in lista %}<tr><td>{{ u.usuario }}</td><td>{{ u.rol }}</td></tr>{% endfor %}</table>
+<h3>Crear usuario</h3>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf }}">
+ <label>Usuario <input name="usuario" required></label>
+ <label>Clave (mín. 8) <input name="clave" type="password" required></label>
+ <label>Rol <select name="rol">{% for r in roles %}<option>{{ r }}</option>{% endfor %}</select></label>
+ <button>Crear</button>
+</form>{% endblock %}

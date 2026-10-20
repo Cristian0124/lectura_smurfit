@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% block c %}
+{% macro op(lista, actual) %}{% for x in lista %}<option {{ 'selected' if actual==x }}>{{ x }}</option>{% endfor %}{% endmacro %}
+<h2>{{ "Editar señal" if s else "Registrar señal" }}</h2>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf }}">
+ <label>Título <input name="titulo" required value="{{ s.titulo if s }}"></label>
+ <label>Descripción <textarea name="descripcion" rows="3" cols="50">{{ s.descripcion if s }}</textarea></label>
+ <label>Factor (PESTEL) <select name="factor">{{ op(factores, s.factor if s) }}</select></label>
+ <label>Tipo de entorno <select name="ambito">{{ op(ambitos, s.ambito if s) }}</select></label>
+ <label>Tipo <select name="tipo">{{ op(tipos, s.tipo if s) }}</select></label>
+ <label>Horizonte de tiempo <select name="horizonte">{{ op(horizontes, s.horizonte if s) }}</select></label>
+ <label>Fuente <select name="fuente_id"><option value="0">Sin fuente</option>
+  {% for f in fuentes %}<option value="{{ f.id }}" {{ 'selected' if s and s.fuente_id==f.id }}>{{ f.nombre }} ({{ f.confiabilidad }})</option>{% endfor %}</select></label>
+ <label>Impacto (1-5) <input name="impacto" type="number" min="1" max="5" required value="{{ s.impacto if s else 3 }}"></label>
+ <label>Probabilidad (1-5) <input name="probabilidad" type="number" min="1" max="5" required value="{{ s.probabilidad if s else 3 }}"></label>
+ <label>Vigente hasta <input name="vigencia" type="date" value="{{ s.vigencia or '' if s }}"></label>
+ {% if s %}<label>Estado <select name="estado">{{ op(estados, s.estado) }}</select></label>{% endif %}
+ <button>Guardar</button>
+</form>{% endblock %}

@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% block c %}
+<h2>Señales del entorno</h2>
+{% if alertas.altas %}<div class="alerta">{{ alertas.altas|length }} señal(es) de riesgo alto sin cerrar: {{ alertas.altas|map(attribute='titulo')|join(', ') }}.</div>{% endif %}
+{% if alertas.vencidas %}<div class="alerta">{{ alertas.vencidas|length }} señal(es) con vigencia vencida: {{ alertas.vencidas|map(attribute='titulo')|join(', ') }}.</div>{% endif %}
+<form method="get" class="no-imprimir">
+ Factor <select name="factor"><option value="">Todos</option>{% for f in factores %}<option {{ 'selected' if f==fa }}>{{ f }}</option>{% endfor %}</select>
+ Horizonte <select name="horizonte"><option value="">Todos</option>{% for h in horizontes %}<option {{ 'selected' if h==ho }}>{{ h }}</option>{% endfor %}</select>
+ <button>Filtrar</button> <a href="{{ url_for('exportar', factor=fa, horizonte=ho) }}">Descargar CSV</a>
+</form>
+<p>{% for f, n in resumen.items() %}{{ f }}: {{ n }}{{ " | " if not loop.last }}{% endfor %} — total {{ senales|length }}</p>
+{% if not senales %}<p>No hay señales{% if session.rol == 'decisor' %} publicadas{% endif %} todavía.</p>{% else %}
+<table><tr><th>Señal</th><th>Factor / ámbito</th><th>Tipo</th><th>Horizonte</th><th>Fuente</th><th>Riesgo</th><th>Vigencia</th><th>Estado</th><th></th></tr>
+{% for s in senales %}<tr>
+ <td><b>{{ s.titulo }}</b><br>{{ s.descripcion }}</td><td>{{ s.factor }}<br>{{ s.ambito }}</td><td>{{ s.tipo }}</td><td>{{ s.horizonte }}</td>
+ <td>{{ s.fuente or '-' }}{% if s.conf %}<br>confiabilidad {{ s.conf }}{% endif %}</td>
+ <td class="{{ nivel(s.puntaje) }}">{{ s.puntaje }} ({{ nivel(s.puntaje) }})</td>
+ <td>{{ s.vigencia or '-' }}{% if s.vigencia and s.vigencia < hoy %} <b class="Alto">vencida</b>{% endif %}</td><td>{{ s.estado }}</td>
+ <td>{% if session.rol in ('admin','analista') %}<a href="{{ url_for('editar', sid=s.id) }}">Editar</a>{% endif %}</td></tr>{% endfor %}
+</table>{% endif %}{% endblock %}
