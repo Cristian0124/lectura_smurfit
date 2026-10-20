@@ -17,6 +17,7 @@
 </style></head><body>
 <header><b>Lectura de entorno · Smurfit Westrock</b>
 {% if session.usuario %}
+ <a href="{{ url_for('pestel') }}">Metodología PESTEL</a>
  <a href="{{ url_for('panel') }}">Panel</a><a href="{{ url_for('informe') }}">Informe</a>
  {% if session.rol in ('admin','analista') %}<a href="{{ url_for('nueva') }}">Registrar señal</a><a href="{{ url_for('fuentes') }}">Fuentes</a>{% endif %}
  {% if session.rol == 'admin' %}<a href="{{ url_for('usuarios') }}">Usuarios</a>{% endif %}

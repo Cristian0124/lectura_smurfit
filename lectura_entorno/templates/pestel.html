@@ -1,0 +1,28 @@
+{% extends "base.html" %}{% block c %}
+<style>
+.pestel-intro{color:#555;max-width:760px}.dimensiones{display:grid;grid-template-columns:repeat(6,minmax(90px,1fr));gap:8px;margin:18px 0}
+.dimension{background:#fff;border:1px solid #ccc;border-top:4px solid var(--tono);padding:12px 8px;text-align:center;text-decoration:none;color:#222}
+.dimension.activa{background:#f1f1ed}.dimension strong{display:block;font-size:20px;color:var(--tono)}
+.detalle{background:#fff;border:1px solid #ccc;padding:18px}.detalle h3{margin-top:0}.detalle-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.detalle a{color:#1f4d36;text-decoration:none}.nota{font-size:13px;color:#555;border-left:3px solid #999;padding:8px 12px;background:#f3f3f0}
+@media(max-width:700px){.dimensiones{grid-template-columns:repeat(3,1fr)}.detalle-grid{grid-template-columns:1fr}}
+</style>
+<h2>Metodología PESTEL</h2>
+<p class="pestel-intro">Explora seis factores externos que pueden influir en una empresa. Esta guía inicial orienta la lectura del entorno de Smurfit Westrock Colombia y ayuda a decidir qué información buscar.</p>
+<div class="dimensiones">
+{% for d in dimensiones %}<a class="dimension {{ 'activa' if d.nombre == dimension.nombre }}" style="--tono:{{ d.color }}" href="{{ url_for('pestel', dimension=d.nombre) }}">
+<strong>{{ d.letra }}</strong>{{ d.nombre }}<small><br>{{ conteos[d.nombre] }} señales</small></a>{% endfor %}
+</div>
+<section class="detalle" style="border-top:4px solid {{ dimension.color }}">
+<h3>{{ dimension.letra }} · {{ dimension.nombre }}</h3>
+<p>{{ dimension.descripcion }}</p>
+<div class="detalle-grid">
+<div><h4>Contexto para investigar</h4><p>{{ dimension.contexto }}</p>
+<h4>Preguntas orientadoras</h4><ul>{% for p in dimension.preguntas %}<li>{{ p }}</li>{% endfor %}</ul></div>
+<div><h4>Fuentes de consulta posibles</h4><p>{{ dimension.fuentes }}</p>
+<h4>En el proyecto</h4><p>Señales registradas en esta dimensión: <b>{{ conteos[dimension.nombre] }}</b>.</p>
+{% if session.rol in ('admin','analista') %}<p><a href="{{ url_for('nueva') }}">Registrar una señal {{ dimension.nombre|lower }}</a></p>{% endif %}</div>
+</div>
+<p class="nota">Los textos de esta guía son líneas de investigación; no afirman que exista un riesgo u oportunidad confirmado. Registra cada hallazgo con su fuente y valida su relación con la empresa antes de tomarlo como conclusión.</p>
+</section>
+{% endblock %}

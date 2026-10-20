@@ -22,6 +22,128 @@ ESTADOS = ["Nueva", "En análisis", "Publicada", "Cerrada"]
 CONFIABILIDAD = ["Alta", "Media", "Baja"]
 ROLES = ["admin", "analista", "decisor"]   # admin=diseña, analista=usuario que registra, decisor=lee
 
+# Guía inicial de trabajo. Son temas para investigar, no conclusiones verificadas.
+PESTEL = [
+    # P · Político
+    {
+        "nombre": "Político",
+        "letra": "P",
+        "color": "#647d56",
+        "descripcion": (
+            "Decisiones y políticas públicas que pueden cambiar las condiciones "
+            "para producir y vender."
+        ),
+        "contexto": (
+            "Para una empresa de empaques en Colombia, conviene observar políticas "
+            "industriales, comerciales y de gestión de residuos."
+        ),
+        "preguntas": [
+            "¿Hay cambios en políticas de producción, comercio o empaques?",
+            "¿Qué incentivos o restricciones públicas podrían afectar al sector?",
+        ],
+        "fuentes": (
+            "Ministerios y entidades públicas, Datos Abiertos Colombia, "
+            "publicaciones empresariales."
+        ),
+    },
+
+    # E · Económico
+    {
+        "nombre": "Económico",
+        "letra": "E",
+        "color": "#a87832",
+        "descripcion": (
+            "Variables económicas que pueden influir en los costos, la demanda "
+            "y la rentabilidad."
+        ),
+        "contexto": (
+            "En empaques, vale la pena seguir costos de materias primas, energía "
+            "y transporte, además de la demanda de clientes comerciales e industriales."
+        ),
+        "preguntas": [
+            "¿Cómo cambian la inflación, la tasa de cambio y los costos de energía?",
+            "¿Qué señales hay sobre la demanda de empaques?",
+        ],
+        "fuentes": "DANE, Banco de la República, Banco Mundial y reportes sectoriales.",
+    },
+
+    # S · Social
+    {
+        "nombre": "Social",
+        "letra": "S",
+        "color": "#896a8b",
+        "descripcion": (
+            "Cambios en las personas, sus hábitos, expectativas y formas de consumo."
+        ),
+        "contexto": (
+            "Los hábitos de compra y las expectativas sobre empaques reciclables "
+            "o de menor impacto pueden influir en las necesidades de los clientes."
+        ),
+        "preguntas": [
+            "¿Qué esperan los consumidores de los empaques?",
+            "¿Cómo cambian las preferencias hacia opciones reciclables o reutilizables?",
+        ],
+        "fuentes": "Estadísticas del DANE, estudios de consumo y publicaciones del sector.",
+    },
+
+    # T · Tecnológico
+    {
+        "nombre": "Tecnológico",
+        "letra": "T",
+        "color": "#54758a",
+        "descripcion": "Tecnologías que pueden transformar productos, procesos y canales de venta.",
+        "contexto": (
+            "La automatización, el diseño de empaques y los canales digitales son temas "
+            "que se pueden revisar para el sector y la oferta comercial de la empresa."
+        ),
+        "preguntas": [
+            "¿Qué tecnologías están cambiando el diseño o la fabricación de empaques?",
+            "¿Qué oportunidades ofrece el comercio digital?",
+        ],
+        "fuentes": "Publicaciones técnicas, gremios, ferias e información corporativa.",
+    },
+
+    # E · Ecológico
+    {
+        "nombre": "Ecológico",
+        "letra": "E",
+        "color": "#3f8063",
+        "descripcion": "Condiciones ambientales, recursos, residuos y efectos del cambio climático.",
+        "contexto": (
+            "En empaques de papel son relevantes la gestión de residuos, el reciclaje, "
+            "el uso de agua y energía y la disponibilidad de materias primas."
+        ),
+        "preguntas": [
+            "¿Qué cambios hay en reciclaje y gestión de residuos?",
+            "¿Qué riesgos ambientales pueden afectar recursos o continuidad operativa?",
+        ],
+        "fuentes": (
+            "Ministerio de Ambiente, IDEAM, autoridades ambientales e informes "
+            "de sostenibilidad."
+        ),
+    },
+
+    # L · Legal
+    {
+        "nombre": "Legal",
+        "letra": "L",
+        "color": "#9a5a4e",
+        "descripcion": "Leyes y normas que establecen obligaciones para la actividad empresarial.",
+        "contexto": (
+            "Se deben seguir normas ambientales, laborales y comerciales, además de "
+            "requisitos sanitarios aplicables a empaques destinados a contacto con alimentos."
+        ),
+        "preguntas": [
+            "¿Se publicaron normas nuevas o cambios que apliquen a empaques?",
+            "¿Qué requisitos aplican a materiales en contacto con alimentos?",
+        ],
+        "fuentes": (
+            "Diario Oficial, SUIN-Juriscol, INVIMA, ministerios y autoridades competentes."
+        ),
+    },
+]
+FACTORES = [d["nombre"] for d in PESTEL]
+
 
 def nivel(p):
     return "Alto" if p >= 15 else "Medio" if p >= 8 else "Bajo"
@@ -138,6 +260,18 @@ def panel():
     return render_template("panel.html", senales=filas, resumen=resumen, alertas=alertas, nivel=nivel,
                            factores=FACTORES, horizontes=HORIZONTES,
                            fa=request.args.get("factor", ""), ho=request.args.get("horizonte", ""))
+
+
+@app.route("/pestel")
+@requiere()
+def pestel():
+    elegido = request.args.get("dimension", "Político")
+    if elegido not in [d["nombre"] for d in PESTEL]:
+        elegido = "Político"
+    dimension = next(d for d in PESTEL if d["nombre"] == elegido)
+    conteos = {d["nombre"]: db().execute("SELECT COUNT(*) FROM senales WHERE factor=?", (d["nombre"],)).fetchone()[0]
+               for d in PESTEL}
+    return render_template("pestel.html", dimensiones=PESTEL, dimension=dimension, conteos=conteos)
 
 
 @app.route("/informe")
