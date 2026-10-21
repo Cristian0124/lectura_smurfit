@@ -1,10 +1,11 @@
 {% extends "base.html" %}{% block c %}
 <h2>Fuentes de información</h2>
 <p>Registra aquí una fuente que el grupo haya decidido consultar. Después podrás seleccionarla al registrar una señal para indicar de dónde salió la información. Agregar una fuente solo la guarda en este catálogo; no descarga ni analiza su contenido automáticamente.</p>
-<table><tr><th>Fuente</th><th>Tipo</th><th>Confiabilidad</th></tr>{% for f in lista %}<tr><td>{{ f.nombre }}</td><td>{{ f.tipo }}</td><td>{{ f.confiabilidad }}</td></tr>{% endfor %}</table>
+<table><tr><th>Fuente</th><th>Tipo</th><th>Confiabilidad</th></tr>{% for f in lista %}<tr><td>{% if f.url %}<a href="{{ f.url }}" target="_blank" rel="noopener">{{ f.nombre }}</a>{% else %}{{ f.nombre }}{% endif %}</td><td>{{ f.tipo }}</td><td>{{ f.confiabilidad }}</td></tr>{% endfor %}</table>
 <h3>Agregar fuente</h3>
 <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf }}">
  <label>Nombre <input name="nombre" required></label>
+ <label>Enlace (URL) <input name="url" type="url"></label>
  <label>Tipo (entidad oficial, prensa, gremio...) <input name="tipo" required></label>
  <label>Confiabilidad <select name="confiabilidad">{% for n in niveles %}<option>{{ n }}</option>{% endfor %}</select></label>
  <button>Agregar</button>

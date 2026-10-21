@@ -1,13 +1,14 @@
 """Lectura de entorno - Smurfit Westrock (MVP / adelanto). Grupo 1.
 Python + Flask + SQLite. Corre local o en PythonAnywhere.
 """
-import csv, io, os, secrets
+import io, os, secrets
 from datetime import date
 from functools import wraps
 
 from flask import (Flask, Response, abort, flash, redirect, render_template,
                    request, session, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
+from excel_export import generar_excel
 import bd
 
 app = Flask(__name__)
@@ -238,19 +239,13 @@ def informe():
     return render_template("informe.html", senales=consulta(), nivel=nivel)
 
 
-@app.route("/exportar.csv")
+@app.route("/exportar.xlsx")
 @requiere()
 def exportar():
-    out = io.StringIO()
-    w = csv.writer(out)
-    w.writerow(["Título", "Factor", "Ámbito", "Tipo", "Horizonte", "Fuente", "Confiabilidad",
-                "Impacto", "Probabilidad", "Riesgo", "Nivel", "Vigencia", "Estado"])
-    for s in consulta():
-        w.writerow([s["titulo"], s["factor"], s["ambito"], s["tipo"], s["horizonte"], s["fuente"], s["conf"],
-                    s["impacto"], s["probabilidad"], s["puntaje"], nivel(s["puntaje"]), s["vigencia"], s["estado"]])
-    return Response(out.getvalue(), mimetype="text/csv",
-                    headers={"Content-Disposition": "attachment; filename=lectura_entorno.csv"})
-
+    contenido = generar_excel(consulta(), nivel)
+    return Response(contenido,
+                    mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": "attachment; filename=lectura_entorno.xlsx"})
 
 # ---------- registrar, calcular y actualizar ----------
 def leer_form():
@@ -310,7 +305,7 @@ def fuentes():
         if request.form["confiabilidad"] not in CONFIABILIDAD:
             abort(400)
         try:
-            bd.agregar_fuente(request.form["nombre"].strip(), request.form["tipo"].strip(), request.form["confiabilidad"])
+            bd.agregar_fuente(request.form["nombre"].strip(), request.form["tipo"].strip(), request.form["confiabilidad"], request.form.get("url", "").strip() or None)
             flash("Fuente agregada.")
         except bd.DuplicadoError:
             flash("Esa fuente ya existe.")

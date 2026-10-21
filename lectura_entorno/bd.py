@@ -37,7 +37,7 @@ def inicializar_bd():
         CREATE TABLE IF NOT EXISTS usuarios(id INTEGER PRIMARY KEY, usuario TEXT UNIQUE NOT NULL,
             clave TEXT NOT NULL, rol TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS fuentes(id INTEGER PRIMARY KEY, nombre TEXT UNIQUE NOT NULL,
-            tipo TEXT NOT NULL, confiabilidad TEXT NOT NULL);
+            tipo TEXT NOT NULL, confiabilidad TEXT NOT NULL, url TEXT);
         CREATE TABLE IF NOT EXISTS senales(id INTEGER PRIMARY KEY, titulo TEXT NOT NULL, descripcion TEXT,
             factor TEXT NOT NULL, ambito TEXT NOT NULL, tipo TEXT NOT NULL, horizonte TEXT NOT NULL,
             fuente_id INTEGER REFERENCES fuentes(id), impacto INTEGER NOT NULL, probabilidad INTEGER NOT NULL,
@@ -47,6 +47,9 @@ def inicializar_bd():
             REFERENCES senales(id), autor TEXT NOT NULL, contenido TEXT NOT NULL,
             creado TEXT DEFAULT CURRENT_TIMESTAMP);
         """)
+        columnas_fuentes = {fila[1] for fila in conexion.execute("PRAGMA table_info(fuentes)")}
+        if "url" not in columnas_fuentes:
+            conexion.execute("ALTER TABLE fuentes ADD COLUMN url TEXT")
         if not conexion.execute("SELECT 1 FROM usuarios LIMIT 1").fetchone():
             usuarios_demo = [
                 ("admin", "admin123", "admin"),
@@ -70,7 +73,7 @@ def buscar_usuario(usuario):
 
 
 def consultar_senales(rol, factor=None, horizonte=None):
-    sql = """SELECT s.*, f.nombre AS fuente, f.confiabilidad AS conf
+    sql = """SELECT s.*, f.nombre AS fuente, f.confiabilidad AS conf, f.url AS fuente_url
              FROM senales s LEFT JOIN fuentes f ON f.id=s.fuente_id WHERE 1=1"""
     parametros = []
     if rol == "decisor":
@@ -135,11 +138,11 @@ def agregar_comentario(senal_id, autor, contenido):
     obtener_conexion().commit()
 
 
-def agregar_fuente(nombre, tipo, confiabilidad):
+def agregar_fuente(nombre, tipo, confiabilidad, url=None):
     try:
         obtener_conexion().execute(
-            "INSERT INTO fuentes(nombre,tipo,confiabilidad) VALUES(?,?,?)",
-            (nombre, tipo, confiabilidad),
+            "INSERT INTO fuentes(nombre,tipo,confiabilidad,url) VALUES(?,?,?,?)",
+            (nombre, tipo, confiabilidad, url),
         )
         obtener_conexion().commit()
     except sqlite3.IntegrityError as error:
