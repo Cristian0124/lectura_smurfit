@@ -39,7 +39,14 @@ class ConexionPostgres:
 
     def execute(self, sql, parametros=()):
         cursor = self.conexion.cursor()
-        cursor.execute(sql.replace("?", "%s"), parametros)
+        sql_postgres = sql.replace("?", "%s")
+        try:
+            cursor.execute(sql_postgres, parametros)
+        except Exception as error:
+            # El SQL solo contiene placeholders; no se registran sus parámetros ni secretos.
+            if hasattr(error, "add_note"):
+                error.add_note(f"SQL PostgreSQL que falló: {sql_postgres}")
+            raise
         return cursor
 
     def commit(self):
@@ -127,6 +134,9 @@ def inicializar_bd():
     conexion = _conectar()
     try:
         _crear_esquema(conexion)
+        if USAR_POSTGRES:
+            # Evita que dos workers creen las cuentas iniciales a la vez.
+            conexion.execute("LOCK TABLE usuarios IN EXCLUSIVE MODE")
         if not conexion.execute("SELECT 1 FROM usuarios LIMIT 1").fetchone():
             if USAR_POSTGRES:
                 usuario_admin = os.environ.get("INITIAL_ADMIN_USER", "").strip()
@@ -141,7 +151,7 @@ def inicializar_bd():
                                  ("directivo", "decisor123", "decisor")]
             for usuario, clave, rol in usuarios_demo:
                 conexion.execute(
-                    "INSERT INTO usuarios(usuario, clave, rol) VALUES (?, ?, ?) ON CONFLICT(usuario) DO NOTHING",
+                    "INSERT INTO usuarios(usuario, clave, rol) VALUES (?, ?, ?)",
                     (usuario, generate_password_hash(clave), rol),
                 )
         conexion.commit()

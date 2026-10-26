@@ -1,7 +1,7 @@
 """Radar de entorno: análisis PESTEL para organizaciones de cualquier sector.
 Python + Flask + SQLite. Corre local o en PythonAnywhere.
 """
-import hashlib, io, json, logging, os, secrets
+import hashlib, io, json, logging, os, re, secrets, traceback
 from datetime import date
 from functools import wraps
 from urllib.error import HTTPError, URLError
@@ -509,8 +509,10 @@ def usuarios():
 try:
     bd.inicializar_bd()
 except Exception as error:
-    # No registrar cadenas de conexión ni detalles que pudieran contener credenciales.
-    logging.error("No se pudo inicializar la base de datos (%s).", type(error).__name__)
+    # Incluye excepción, traceback y SQL anotado por el adaptador, ocultando cualquier DSN.
+    detalle = "".join(traceback.format_exception(type(error), error, error.__traceback__))
+    detalle = re.sub(r"(?i)postgres(?:ql)?://[^\s'\"<>]+", "postgresql://[CREDENCIALES OCULTAS]", detalle)
+    logging.error("No se pudo inicializar la base de datos (%s):\n%s", type(error).__name__, detalle)
     raise RuntimeError("No se pudo inicializar la base de datos; revisa DATABASE_URL y los registros del servicio.") from None
 
 if __name__ == "__main__":
