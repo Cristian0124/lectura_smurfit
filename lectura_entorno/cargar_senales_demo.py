@@ -1,9 +1,8 @@
-        print(f"Se cargaron/actualizaron {len(CASOS)} ejemplos sinteticos.")
+"""Carga señales ficticias de demostración sin borrar registros existentes.
 
 Ejecutar desde esta carpeta: python cargar_senales_demo.py
-Los ejemplos son ficticios y no representan organizaciones ni hallazgos reales.
+Los ejemplos no representan organizaciones ni hallazgos reales.
 """
-import sqlite3
 from datetime import date, timedelta
 
 import app
@@ -21,16 +20,16 @@ CASOS = [
 
 
 def cargar():
-    conexion = sqlite3.connect(bd.RUTA_BD)
+    conexion = bd._conectar()
     try:
         existente = conexion.execute("SELECT id FROM fuentes WHERE nombre=?", ("Fuente de ejemplo",)).fetchone()
         if existente:
             fuente_id = existente[0]
         else:
             fuente_id = conexion.execute(
-                "INSERT INTO fuentes(nombre,tipo,confiabilidad,url) VALUES(?,?,?,?)",
+                "INSERT INTO fuentes(nombre,tipo,confiabilidad,url) VALUES(?,?,?,?) RETURNING id",
                 ("Fuente de ejemplo", "Referencia sintetica", "Baja", None),
-            ).lastrowid
+            ).fetchone()[0]
         ids = conexion.execute(
             "SELECT id FROM senales WHERE titulo LIKE '[DEMO]%' ORDER BY id"
         ).fetchall()
@@ -45,8 +44,6 @@ def cargar():
             else:
                 conexion.execute("""INSERT INTO senales(titulo,descripcion,factor,ambito,tipo,horizonte,fuente_id,
                     impacto,probabilidad,puntaje,vigencia,estado,autor) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""", datos)
-        for fila in ids[len(CASOS):]:
-            conexion.execute("DELETE FROM senales WHERE id=?", (fila[0],))
         conexion.commit()
         print(f"Se cargaron/actualizaron {len(CASOS)} ejemplos sinteticos.")
     finally:

@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: radar-entorno
+    runtime: python
+    rootDir: lectura_entorno
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:${PORT:-10000} app:app
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: FIRECRAWL_API_KEY
+        sync: false
+      - key: INITIAL_ADMIN_USER
+        sync: false
+      - key: INITIAL_ADMIN_PASSWORD
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true

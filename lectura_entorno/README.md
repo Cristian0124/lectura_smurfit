@@ -1,42 +1,40 @@
 # Radar de entorno
 
-Aplicacion web para registrar, organizar y consultar senales del entorno con el metodo PESTEL. Se adapta a organizaciones, sectores y paises distintos. Al analizar una URL, Firecrawl extrae datos estructurados y guarda automaticamente las senales PESTEL detectadas para organizaciones de cualquier sector en Colombia.
+Aplicación web Flask para registrar y analizar señales del entorno mediante PESTEL. Incluye gestión de fuentes, señales, comentarios, filtros, informes, exportación a Excel y análisis estructurado de páginas con Firecrawl.
 
-## Funciones disponibles
+## Ejecución local
 
-- Registro y seguimiento de senales PESTEL, con descripcion, implicaciones, impacto, probabilidad, horizonte, vigencia y estado.
-- Analisis automatico de paginas con Firecrawl, almacenamiento de fuente, evidencia y justificacion.
-- Panel, alertas, informe imprimible y exportacion a Excel.
-- Roles de administracion, analisis y lectura ejecutiva.
-- Guia de preguntas PESTEL que se puede adaptar al contexto de analisis.
-
-## Inicio local
-
-En Windows, ejecuta `iniciar.bat`. En otros entornos:
+En Windows, ejecuta `iniciar.bat`. También puedes instalar dependencias y arrancar manualmente:
 
 ```sh
 pip install -r requirements.txt
 python app.py
 ```
 
-La aplicacion estara en http://127.0.0.1:5000. En una base nueva se crean usuarios de demostracion (`admin/admin123`, `analista/analista123`, `directivo/decisor123`); cambia estas credenciales antes de publicar la aplicacion. Define `SECRET_KEY` y, opcionalmente, `DB` mediante variables de entorno.
+La aplicación usa `entorno.db` (SQLite) por defecto. `DB` permite cambiar su ubicación. En una base nueva se crean los usuarios demo `admin/admin123`, `analista/analista123` y `directivo/decisor123`; cambia esas claves antes de exponer el servicio públicamente.
 
-## Analisis automatico con Firecrawl
+## Variables de entorno
 
-La opcion **Analizar pagina** extrae hasta cinco senales distintas desde una URL publica y las guarda automaticamente en SQLite. El sistema completa titulo, descripcion, implicaciones, factor, ambito, tipo, horizonte, impacto, probabilidad, puntaje, vigencia, fuente, fechas y justificacion. Cada se?al queda en estado `Nueva` y aparece en su dimension PESTEL, el panel, el informe y Excel. Las URL repetidas no crean duplicados.
+- `DATABASE_URL`: si está definida, selecciona PostgreSQL (Neon). Si no, se usa SQLite.
+- `DB`: ruta opcional del archivo SQLite local.
+- `SECRET_KEY`: clave de sesión de Flask. Obligatoria cuando se configura `DATABASE_URL`.
+- `FIRECRAWL_API_KEY`: clave del servicio Firecrawl. Se requiere para analizar páginas web.
+- `INITIAL_ADMIN_USER` y `INITIAL_ADMIN_PASSWORD`: usuario de arranque de Neon. Se usan solo si la tabla de usuarios está vacía; la contraseña debe tener al menos 12 caracteres.
 
-Configura la clave desde PowerShell:
+No publiques estas claves ni las incluyas en Git. La extracción estructurada usa el endpoint REST v2 y consume créditos de Firecrawl. Cuando el proveedor devuelve un error, la aplicación muestra un aviso y no finge haber guardado resultados.
 
-```powershell
-setx FIRECRAWL_API_KEY "tu_clave_de_firecrawl"
-```
+## Despliegue en Render + Neon
 
-Cierra y vuelve a abrir la terminal o el IDE para que la variable este disponible. No pongas la clave en el codigo ni la subas al repositorio. La integracion usa el endpoint REST v2 de Firecrawl y la biblioteca estandar de Python; no requiere instalar un SDK adicional. El modo JSON estructurado usa un modelo de lenguaje de Firecrawl y consume mas creditos que una extraccion de texto simple.
+El archivo `render.yaml` prepara el servicio con raíz `lectura_entorno`, instalación desde `requirements.txt` e inicio mediante Gunicorn. En Render, crea el servicio desde el repositorio y configura:
 
-## Datos de demostracion
+- **Root Directory:** `lectura_entorno`
+- **Build Command:** `pip install -r requirements.txt`
+- **Start Command:** `gunicorn --bind 0.0.0.0:${PORT:-10000} app:app`
 
-`python cargar_senales_demo.py` agrega ejemplos sinteticos que no representan organizaciones ni hallazgos reales. La base `entorno.db` se conserva entre ejecuciones.
+Crea una base PostgreSQL en Neon y copia su cadena de conexión completa en `DATABASE_URL` dentro de **Environment** en Render. Usa la cadena con SSL que proporciona Neon y no la escribas en archivos versionados. Define `FIRECRAWL_API_KEY`, `INITIAL_ADMIN_USER` y `INITIAL_ADMIN_PASSWORD`; `SECRET_KEY` se genera desde el archivo Blueprint. Guarda y despliega de nuevo. El usuario y la contraseña iniciales solo se utilizan para crear el primer administrador en una base vacía; Neon no recibe las cuentas demo locales.
 
-## Publicacion
+En el primer arranque, la aplicación crea las tablas y añade columnas faltantes sin borrar registros. SQLite local y Neon son bases independientes: no se copian datos entre ellas automáticamente. Para migrar información existente, primero hay que planear y validar una migración explícita.
 
-Consulta [PYTHONANYWHERE.md](PYTHONANYWHERE.md) para la guia de despliegue. Sustituye las rutas de ejemplo por las de tu entorno.
+En local se conservan las cuentas demo. En Neon se crea solo el administrador configurado en las variables iniciales, evitando publicar las credenciales demo conocidas.
+
+La conexión real a Neon y Firecrawl solo se puede confirmar después de configurar sus credenciales en Render y probar desde el servicio desplegado.

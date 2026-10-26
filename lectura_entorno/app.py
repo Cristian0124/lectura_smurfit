@@ -1,7 +1,7 @@
 """Radar de entorno: análisis PESTEL para organizaciones de cualquier sector.
 Python + Flask + SQLite. Corre local o en PythonAnywhere.
 """
-import hashlib, io, json, os, secrets
+import hashlib, io, json, logging, os, secrets
 from datetime import date
 from functools import wraps
 from urllib.error import HTTPError, URLError
@@ -15,8 +15,12 @@ from excel_export import generar_excel
 import bd
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "cambiar-en-produccion")
-app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
+SECRET_KEY = os.environ.get("SECRET_KEY", "").strip()
+if os.environ.get("DATABASE_URL") and not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY debe configurarse en el entorno de producción.")
+app.secret_key = SECRET_KEY or "solo-desarrollo-local-cambiar-en-produccion"
+app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
+                  SESSION_COOKIE_SECURE=bool(os.environ.get("DATABASE_URL")))
 
 FACTORES = ["Político", "Económico", "Social", "Tecnológico", "Ecológico", "Legal"]      # PESTEL
 AMBITOS = ["País o región", "Sector", "Mercado", "Competencia", "Proveedores", "Clientes", "Tecnología"]
@@ -386,12 +390,14 @@ def analizar_pagina():
             else:
                 flash("La pagina se extrajo, pero Firecrawl no detecto señales PESTEL suficientemente claras para guardar.")
         except HTTPError as error:
-            if error.code == 402:
+            if error.code in (401, 403):
+                flash("Firecrawl rechazó la solicitud. Verifica la API key y los permisos de la cuenta.")
+            elif error.code == 402:
                 flash("Firecrawl no tiene creditos disponibles para esta extraccion estructurada.")
-            elif error.code == 403:
-                flash("Firecrawl rechazo la solicitud. Puede ser un bloqueo de seguridad del contenido o de la cuenta.")
+            elif error.code == 429:
+                flash("Firecrawl recibió demasiadas solicitudes. Espera un momento e inténtalo de nuevo.")
             else:
-                flash(f"Firecrawl respondio con un error HTTP {error.code}. Revisa la URL y la clave API.")
+                flash(f"Firecrawl respondió con un error HTTP {error.code}. Inténtalo más tarde.")
         except (URLError, TimeoutError, json.JSONDecodeError, UnicodeDecodeError):
             flash("No se pudo conectar con Firecrawl. Intenta de nuevo en unos minutos.")
         except (AttributeError, TypeError, ValueError):
@@ -500,6 +506,12 @@ def usuarios():
                            lista=bd.listar_usuarios())
 
 
-bd.inicializar_bd()
+try:
+    bd.inicializar_bd()
+except Exception as error:
+    # No registrar cadenas de conexión ni detalles que pudieran contener credenciales.
+    logging.error("No se pudo inicializar la base de datos (%s).", type(error).__name__)
+    raise RuntimeError("No se pudo inicializar la base de datos; revisa DATABASE_URL y los registros del servicio.") from None
+
 if __name__ == "__main__":
     app.run(debug=True)
