@@ -4,6 +4,7 @@
 <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf }}">
  <label>Título <input name="titulo" required value="{{ s.titulo if s }}"></label>
  <label>Descripción <textarea name="descripcion" rows="3" cols="50">{{ s.descripcion if s }}</textarea></label>
+ <label>Implicaciones <textarea name="implicaciones" rows="3" cols="50">{{ s.implicaciones if s }}</textarea></label>
  <label>Factor (PESTEL) <select name="factor">{{ op(factores, s.factor if s) }}</select></label>
  <label>Tipo de entorno <select name="ambito">{{ op(ambitos, s.ambito if s) }}</select></label>
  <label>Tipo <select name="tipo">{{ op(tipos, s.tipo if s) }}</select></label>

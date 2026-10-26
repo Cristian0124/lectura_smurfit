@@ -8,8 +8,9 @@ ENCABEZADOS = [
     "Título", "Descripción", "Factor PESTEL", "Ámbito", "Tipo", "Horizonte",
     "Fuente", "Confiabilidad", "Impacto", "Probabilidad", "Riesgo",
     "Nivel de riesgo", "Vigencia", "Estado", "Autor", "Fecha de registro",
+    "Fecha de publicacion", "Fecha de identificacion", "Justificacion PESTEL", "URL de fuente", "Implicaciones",
 ]
-ANCHOS = [34, 58, 20, 25, 17, 18, 28, 17, 12, 14, 12, 18, 16, 18, 18, 22]
+ANCHOS = [34, 58, 20, 25, 17, 18, 28, 17, 12, 14, 12, 18, 16, 18, 18, 22, 20, 20, 60, 45, 55]
 LETRAS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 
@@ -30,7 +31,9 @@ def generar_excel(senales, nivel):
         datos = [senal["titulo"], senal["descripcion"], senal["factor"], senal["ambito"],
                  senal["tipo"], senal["horizonte"], senal["fuente"] or "-", senal["conf"] or "-",
                  senal["impacto"], senal["probabilidad"], senal["puntaje"], riesgo,
-                 senal["vigencia"] or "-", senal["estado"], senal["autor"] or "-", senal["creada"] or "-"]
+                 senal["vigencia"] or "-", senal["estado"], senal["autor"] or "-", senal["creada"] or "-",
+                 senal["fecha_publicacion"] or "-", senal["fecha_identificacion"] or "-",
+                 senal["justificacion"] or "-", senal["fuente_url"] or "-", senal["implicaciones"] or "-"]
         estilo_fila = 2 if numero_fila % 2 == 0 else 0
         celdas = []
         for indice, valor in enumerate(datos):
@@ -46,7 +49,7 @@ def generar_excel(senales, nivel):
         '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
         '<sheetViews><sheetView showGridLines="0" workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
         f'<cols>{columnas}</cols><sheetData>{"".join(filas)}</sheetData>'
-        f'<autoFilter ref="A1:P{total_filas}"/><pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>'
+        f'<autoFilter ref="A1:{LETRAS[len(ENCABEZADOS)-1]}{total_filas}"/><pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>'
         '</worksheet>')
     estilos = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">

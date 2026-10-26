@@ -18,7 +18,7 @@ if errorlevel 1 (
 )
 
 :iniciar
-start "Lectura de entorno - servidor" cmd /k ""%PYTHON%" app.py"
+start "Radar de entorno - servidor" cmd /k ""%PYTHON%" app.py"
 timeout /t 3 /nobreak >nul
 start "" http://127.0.0.1:5000
 endlocal

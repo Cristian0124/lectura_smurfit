@@ -1,32 +1,42 @@
-# Lectura de entorno – Smurfit Westrock (adelanto / MVP) – Grupo 1
+# Radar de entorno
 
-Python + Flask + SQLite.
+Aplicacion web para registrar, organizar y consultar senales del entorno con el metodo PESTEL. Se adapta a organizaciones, sectores y paises distintos. Al analizar una URL, Firecrawl extrae datos estructurados y guarda automaticamente las senales PESTEL detectadas para organizaciones de cualquier sector en Colombia.
 
-Este avance incluye el apartado **Metodología PESTEL** (`/pestel`): permite explorar las seis dimensiones, consultar preguntas guía y ver cuántas señales se han registrado en cada una. El contexto incluido es una guía inicial de investigación, no un conjunto de hallazgos confirmados. La captura de información sigue siendo manual; todavía no hay conexión a APIs.
+## Funciones disponibles
 
-En la edición de una señal, administradores y analistas pueden agregar comentarios de seguimiento. Cada comentario conserva su autor y fecha, y se guarda separado de los datos de la señal.
+- Registro y seguimiento de senales PESTEL, con descripcion, implicaciones, impacto, probabilidad, horizonte, vigencia y estado.
+- Analisis automatico de paginas con Firecrawl, almacenamiento de fuente, evidencia y justificacion.
+- Panel, alertas, informe imprimible y exportacion a Excel.
+- Roles de administracion, analisis y lectura ejecutiva.
+- Guia de preguntas PESTEL que se puede adaptar al contexto de analisis.
 
-    pip install -r requirements.txt
-    python app.py          # http://127.0.0.1:5000
+## Inicio local
 
-Usuarios de prueba: admin/admin123, analista/analista123, directivo/decisor123 (cambiarlos).
+En Windows, ejecuta `iniciar.bat`. En otros entornos:
 
-## Requisitos del Grupo 1 y dónde se cubren
-1. Información (tipo, cantidad): señales con factor, ámbito, tipo, riesgo y vigencia; el panel muestra el total por factor.
-2. Funciones: registrar, actualizar, calcular (riesgo = impacto x probabilidad) y leer.
-3. Para quién: directivos y analistas de Smurfit Westrock que toman decisiones sobre el entorno.
-4. Tipo de entorno: factores PESTEL + ámbito (país, sector, competencia, proveedores, clientes).
-5. Fuentes: catálogo de fuentes con tipo y confiabilidad, elegibles al registrar.
-6. Seguridad: claves con hash, sesión con cookie HttpOnly/SameSite, CSRF, permisos por rol, validación de datos.
-7. Dispositivos: web responsive (computador y celular).
-8. Acceso / roles: admin, analista y decisor (solo ve lo publicado).
-Del tablero también: nivel de riesgo y horizonte de tiempo (Grupo 2), tipo de salida tablas/alertas/informes
-(Grupo 5: panel, alertas de riesgo alto o vencidas, informe imprimible y CSV) y vigencia (Grupo 6).
+```sh
+pip install -r requirements.txt
+python app.py
+```
 
-## PythonAnywhere
+La aplicacion estara en http://127.0.0.1:5000. En una base nueva se crean usuarios de demostracion (`admin/admin123`, `analista/analista123`, `directivo/decisor123`); cambia estas credenciales antes de publicar la aplicacion. Define `SECRET_KEY` y, opcionalmente, `DB` mediante variables de entorno.
 
-Guia para publicar la app y guardar la base SQLite en tu cuenta: [PYTHONANYWHERE.md](PYTHONANYWHERE.md).
+## Analisis automatico con Firecrawl
 
-## Inicio en Windows
+La opcion **Analizar pagina** extrae hasta cinco senales distintas desde una URL publica y las guarda automaticamente en SQLite. El sistema completa titulo, descripcion, implicaciones, factor, ambito, tipo, horizonte, impacto, probabilidad, puntaje, vigencia, fuente, fechas y justificacion. Cada se?al queda en estado `Nueva` y aparece en su dimension PESTEL, el panel, el informe y Excel. Las URL repetidas no crean duplicados.
 
-Haz doble clic en `iniciar.bat`. La primera vez descarga un Python portable y Flask dentro de `.runtime` (requiere conexion a Internet); despues abre la aplicacion en http://127.0.0.1:5000.
+Configura la clave desde PowerShell:
+
+```powershell
+setx FIRECRAWL_API_KEY "tu_clave_de_firecrawl"
+```
+
+Cierra y vuelve a abrir la terminal o el IDE para que la variable este disponible. No pongas la clave en el codigo ni la subas al repositorio. La integracion usa el endpoint REST v2 de Firecrawl y la biblioteca estandar de Python; no requiere instalar un SDK adicional. El modo JSON estructurado usa un modelo de lenguaje de Firecrawl y consume mas creditos que una extraccion de texto simple.
+
+## Datos de demostracion
+
+`python cargar_senales_demo.py` agrega ejemplos sinteticos que no representan organizaciones ni hallazgos reales. La base `entorno.db` se conserva entre ejecuciones.
+
+## Publicacion
+
+Consulta [PYTHONANYWHERE.md](PYTHONANYWHERE.md) para la guia de despliegue. Sustituye las rutas de ejemplo por las de tu entorno.

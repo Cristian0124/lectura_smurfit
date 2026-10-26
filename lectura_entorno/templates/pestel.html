@@ -4,11 +4,12 @@
 .dimension{background:#fff;border:1px solid #ccc;border-top:4px solid var(--tono);padding:12px 8px;text-align:center;text-decoration:none;color:#222}
 .dimension.activa{background:#f1f1ed}.dimension strong{display:block;font-size:20px;color:var(--tono)}
 .detalle{background:#fff;border:1px solid #ccc;padding:18px}.detalle h3{margin-top:0}.detalle-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.senal{background:#fff;border:1px solid #e3e9e4;border-radius:10px;padding:16px 18px;margin:12px 0}.senal h3{margin:0 0 8px}
 .detalle a{color:#1f4d36;text-decoration:none}.nota{font-size:13px;color:#555;border-left:3px solid #999;padding:8px 12px;background:#f3f3f0}
 @media(max-width:700px){.dimensiones{grid-template-columns:repeat(3,1fr)}.detalle-grid{grid-template-columns:1fr}}
 </style>
 <h2>Metodología PESTEL</h2>
-<p class="pestel-intro">Explora seis factores externos que pueden influir en una empresa. Esta guía inicial orienta la lectura del entorno de Smurfit Westrock Colombia y ayuda a decidir qué información buscar.</p>
+<p class="pestel-intro">Explora seis factores externos que pueden influir en una organizacion. Adapta esta guia al pais, sector y mercado que estes analizando.</p>
 <div class="dimensiones">
 {% for d in dimensiones %}<a class="dimension {{ 'activa' if d.nombre == dimension.nombre }}" style="--tono:{{ d.color }}" href="{{ url_for('pestel', dimension=d.nombre) }}">
 <strong>{{ d.letra }}</strong>{{ d.nombre }}<small><br>{{ conteos[d.nombre] }} señales</small></a>{% endfor %}
@@ -23,6 +24,23 @@
 <h4>En el proyecto</h4><p>Señales registradas en esta dimensión: <b>{{ conteos[dimension.nombre] }}</b>.</p>
 {% if session.rol in ('admin','analista') %}<p><a href="{{ url_for('nueva') }}">Registrar una señal {{ dimension.nombre|lower }}</a></p>{% endif %}</div>
 </div>
-<p class="nota">Los textos de esta guía son líneas de investigación; no afirman que exista un riesgo u oportunidad confirmado. Registra cada hallazgo con su fuente y valida su relación con la empresa antes de tomarlo como conclusión.</p>
+<p class="nota">Los textos de esta guia orientan la investigacion; no son hallazgos confirmados. Revisa cada senal, su evidencia y su relacion con la organizacion antes de tomar decisiones.</p>
+</section>
+<section>
+<h3>Senales guardadas en {{ dimension.nombre }}</h3>
+{% for s in senales %}
+ <article class="senal">
+  <h3>{{ s.titulo }}</h3>
+  <p>{{ s.descripcion }}</p>
+  {% if s.implicaciones %}<p><b>Implicaciones:</b> {{ s.implicaciones }}</p>{% endif %}
+  <p><b>{{ s.tipo }}</b> ? {{ s.ambito }} ? {{ s.horizonte }} ? Riesgo {{ s.puntaje }} ({{ nivel(s.puntaje) }}) ? {{ s.estado }}</p>
+  <p>
+   {% if s.fuente_url %}<a href="{{ s.fuente_url }}" target="_blank" rel="noopener">{{ s.fuente or 'Abrir fuente original' }}</a>{% else %}{{ s.fuente or 'Sin fuente' }}{% endif %}
+   {% if s.fecha_publicacion %} ? Publicada: {{ s.fecha_publicacion }}{% endif %}
+   {% if s.fecha_identificacion %} ? Identificada: {{ s.fecha_identificacion }}{% endif %}
+  </p>
+  {% if s.justificacion %}<details><summary>Ver evidencia de la clasificacion</summary><p>{{ s.justificacion }}</p></details>{% endif %}
+ </article>
+{% else %}<p>Aun no hay senales guardadas para esta dimension. Las senales que guardes al analizar una pagina apareceran aqui.</p>{% endfor %}
 </section>
 {% endblock %}

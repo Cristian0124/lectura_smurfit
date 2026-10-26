@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block c %}
+<h2>Analisis automatico PESTEL</h2>
+<p>Ingresa una URL publica. Firecrawl extraera y organizara los datos de la señal, calculara el riesgo y guardara automaticamente cada acontecimiento relevante en la base de datos y en su apartado PESTEL.</p>
+<p>El analisis se evalua para organizaciones de cualquier sector en Colombia. Si la fuente no aporta informacion suficiente para un campo, no se inventara una señal. Las señales guardadas quedan en estado Nueva para que puedan revisarse en el panel.</p>
+<p>La extraccion estructurada y la revision de seguridad consumen creditos adicionales de Firecrawl por pagina.</p>
+<form method="post">
+ <input type="hidden" name="csrf_token" value="{{ csrf }}">
+ <label>URL de la pagina <input name="url" type="url" value="{{ url }}" placeholder="https://..." required maxlength="2048" style="width:min(100%,620px)"></label>
+ <button type="submit">Analizar y guardar automaticamente</button>
+</form>
+{% endblock %}

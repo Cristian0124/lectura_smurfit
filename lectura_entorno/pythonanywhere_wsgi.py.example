@@ -6,9 +6,9 @@ replace the secret key before reloading the web app.
 import os
 import sys
 
-USERNAME = "cris0124"
-PROJECT_DIR = f"/home/{USERNAME}/LECTURA_ENTORNO"
-DATABASE_PATH = f"/home/{USERNAME}/.local/share/lectura_entorno/entorno.db"
+USERNAME = "tu_usuario"
+PROJECT_DIR = f"/home/{USERNAME}/radar_entorno"
+DATABASE_PATH = f"/home/{USERNAME}/.local/share/radar_entorno/entorno.db"
 SECRET_KEY = "REEMPLAZA_POR_UNA_CLAVE_ALEATORIA_LARGA"
 
 if SECRET_KEY == "REEMPLAZA_POR_UNA_CLAVE_ALEATORIA_LARGA":

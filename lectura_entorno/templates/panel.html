@@ -11,7 +11,7 @@
 {% if not senales %}<p>No hay señales{% if session.rol == 'decisor' %} publicadas{% endif %} todavía.</p>{% else %}
 <table><tr><th>Señal</th><th>Factor / ámbito</th><th>Tipo</th><th>Horizonte</th><th>Fuente</th><th>Riesgo</th><th>Vigencia</th><th>Estado</th><th></th></tr>
 {% for s in senales %}<tr>
- <td><b>{{ s.titulo }}</b><br>{{ s.descripcion }}</td><td>{{ s.factor }}<br>{{ s.ambito }}</td><td>{{ s.tipo }}</td><td>{{ s.horizonte }}</td>
+ <td><b>{{ s.titulo }}</b><br>{{ s.descripcion }}{% if s.implicaciones %}<br><small><b>Implicaciones:</b> {{ s.implicaciones }}</small>{% endif %}{% if s.fecha_publicacion %}<br><small>Publicada: {{ s.fecha_publicacion }}</small>{% endif %}{% if s.fecha_identificacion %}<br><small>Identificada: {{ s.fecha_identificacion }}</small>{% endif %}{% if s.justificacion %}<br><small><b>Justificacion:</b> {{ s.justificacion }}</small>{% endif %}</td><td>{{ s.factor }}<br>{{ s.ambito }}</td><td>{{ s.tipo }}</td><td>{{ s.horizonte }}</td>
  <td>{% if s.fuente_url %}<a href="{{ s.fuente_url }}" target="_blank" rel="noopener">{{ s.fuente }}</a>{% else %}{{ s.fuente or '-' }}{% endif %}{% if s.conf %}<br>confiabilidad {{ s.conf }}{% endif %}</td>
  <td class="{{ nivel(s.puntaje) }}">{{ s.puntaje }} ({{ nivel(s.puntaje) }})</td>
  <td>{{ s.vigencia or '-' }}{% if s.vigencia and s.vigencia < hoy %} <b class="Alto">vencida</b>{% endif %}</td><td>{{ s.estado }}</td>

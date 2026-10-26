@@ -50,6 +50,11 @@ def inicializar_bd():
         columnas_fuentes = {fila[1] for fila in conexion.execute("PRAGMA table_info(fuentes)")}
         if "url" not in columnas_fuentes:
             conexion.execute("ALTER TABLE fuentes ADD COLUMN url TEXT")
+        columnas_senales = {fila[1] for fila in conexion.execute("PRAGMA table_info(senales)")}
+        for columna, tipo in (("justificacion", "TEXT"), ("fecha_publicacion", "TEXT"),
+                              ("fecha_identificacion", "TEXT"), ("implicaciones", "TEXT")):
+            if columna not in columnas_senales:
+                conexion.execute(f"ALTER TABLE senales ADD COLUMN {columna} {tipo}")
         if not conexion.execute("SELECT 1 FROM usuarios LIMIT 1").fetchone():
             usuarios_demo = [
                 ("admin", "admin123", "admin"),
@@ -114,16 +119,26 @@ def buscar_senal(senal_id):
 
 def registrar_senal(datos, autor):
     obtener_conexion().execute(
-        """INSERT INTO senales(titulo,descripcion,factor,ambito,tipo,horizonte,fuente_id,
-           impacto,probabilidad,puntaje,vigencia,autor) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
+        """INSERT INTO senales(titulo,descripcion,implicaciones,factor,ambito,tipo,horizonte,fuente_id,
+           impacto,probabilidad,puntaje,vigencia,autor) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         datos + (autor,),
+    )
+    obtener_conexion().commit()
+
+
+def registrar_senal_analizada(datos, autor, justificacion, fecha_publicacion, fecha_identificacion):
+    obtener_conexion().execute(
+        """INSERT INTO senales(titulo,descripcion,implicaciones,factor,ambito,tipo,horizonte,fuente_id,
+           impacto,probabilidad,puntaje,vigencia,autor,justificacion,fecha_publicacion,fecha_identificacion)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        datos + (autor, justificacion, fecha_publicacion, fecha_identificacion),
     )
     obtener_conexion().commit()
 
 
 def actualizar_senal(senal_id, datos, estado):
     obtener_conexion().execute(
-        """UPDATE senales SET titulo=?,descripcion=?,factor=?,ambito=?,tipo=?,horizonte=?,
+        """UPDATE senales SET titulo=?,descripcion=?,implicaciones=?,factor=?,ambito=?,tipo=?,horizonte=?,
            fuente_id=?,impacto=?,probabilidad=?,puntaje=?,vigencia=?,estado=? WHERE id=?""",
         datos + (estado, senal_id),
     )
@@ -145,6 +160,29 @@ def agregar_fuente(nombre, tipo, confiabilidad, url=None):
             (nombre, tipo, confiabilidad, url),
         )
         obtener_conexion().commit()
+    except sqlite3.IntegrityError as error:
+        raise DuplicadoError from error
+
+
+def buscar_fuente_por_url(url):
+    return obtener_conexion().execute("SELECT id FROM fuentes WHERE url=?", (url,)).fetchone()
+
+
+def senal_ya_registrada(fuente_id, titulo, factor):
+    return obtener_conexion().execute(
+        "SELECT 1 FROM senales WHERE fuente_id=? AND lower(titulo)=lower(?) AND factor=? LIMIT 1",
+        (fuente_id, titulo, factor),
+    ).fetchone() is not None
+
+
+def crear_fuente_analizada(nombre, url):
+    try:
+        cursor = obtener_conexion().execute(
+            "INSERT INTO fuentes(nombre,tipo,confiabilidad,url) VALUES(?,?,?,?)",
+            (nombre, "Pagina web", "Media", url),
+        )
+        obtener_conexion().commit()
+        return cursor.lastrowid
     except sqlite3.IntegrityError as error:
         raise DuplicadoError from error
 

@@ -1,9 +1,12 @@
-"""Lectura de entorno - Smurfit Westrock (MVP / adelanto). Grupo 1.
+"""Radar de entorno: análisis PESTEL para organizaciones de cualquier sector.
 Python + Flask + SQLite. Corre local o en PythonAnywhere.
 """
-import io, os, secrets
+import hashlib, io, json, os, secrets
 from datetime import date
 from functools import wraps
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlsplit
+from urllib.request import Request, urlopen
 
 from flask import (Flask, Response, abort, flash, redirect, render_template,
                    request, session, url_for)
@@ -16,7 +19,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "cambiar-en-produccion")
 app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
 
 FACTORES = ["Político", "Económico", "Social", "Tecnológico", "Ecológico", "Legal"]      # PESTEL
-AMBITOS = ["País (Colombia)", "Sector empaques/papel", "Competencia", "Proveedores", "Clientes"]  # tipo de entorno
+AMBITOS = ["País o región", "Sector", "Mercado", "Competencia", "Proveedores", "Clientes", "Tecnología"]
 TIPOS = ["Oportunidad", "Amenaza"]
 HORIZONTES = ["Corto plazo", "Mediano plazo", "Largo plazo"]
 ESTADOS = ["Nueva", "En análisis", "Publicada", "Cerrada"]
@@ -35,16 +38,15 @@ PESTEL = [
             "para producir y vender."
         ),
         "contexto": (
-            "Para una empresa de empaques en Colombia, conviene observar políticas "
-            "industriales, comerciales y de gestión de residuos."
+            "Analiza decisiones públicas, estabilidad institucional y políticas que puedan "
+            "cambiar las condiciones de operación en el territorio de interés."
         ),
         "preguntas": [
-            "¿Hay cambios en políticas de producción, comercio o empaques?",
-            "¿Qué incentivos o restricciones públicas podrían afectar al sector?",
+            "¿Qué cambios de política pública afectan a la actividad o al mercado?",
+            "¿Qué incentivos, restricciones o riesgos institucionales están surgiendo?",
         ],
         "fuentes": (
-            "Ministerios y entidades públicas, Datos Abiertos Colombia, "
-            "publicaciones empresariales."
+            "Entidades publicas, registros oficiales y comunicados institucionales."
         ),
     },
 
@@ -58,14 +60,14 @@ PESTEL = [
             "y la rentabilidad."
         ),
         "contexto": (
-            "En empaques, vale la pena seguir costos de materias primas, energía "
-            "y transporte, además de la demanda de clientes comerciales e industriales."
+            "Observa inflación, tasas, empleo, costos, inversión, comercio y demanda "
+            "en los mercados relevantes para la organización."
         ),
         "preguntas": [
             "¿Cómo cambian la inflación, la tasa de cambio y los costos de energía?",
-            "¿Qué señales hay sobre la demanda de empaques?",
+            "¿Qué señales muestran cambios en la demanda o en el costo de operar?",
         ],
-        "fuentes": "DANE, Banco de la República, Banco Mundial y reportes sectoriales.",
+        "fuentes": "Institutos estadisticos, bancos centrales y reportes economicos del territorio analizado.",
     },
 
     # S · Social
@@ -77,14 +79,14 @@ PESTEL = [
             "Cambios en las personas, sus hábitos, expectativas y formas de consumo."
         ),
         "contexto": (
-            "Los hábitos de compra y las expectativas sobre empaques reciclables "
-            "o de menor impacto pueden influir en las necesidades de los clientes."
+            "Los cambios demográficos, culturales, laborales y de consumo pueden "
+            "modificar expectativas y necesidades de las partes interesadas."
         ),
         "preguntas": [
-            "¿Qué esperan los consumidores de los empaques?",
-            "¿Cómo cambian las preferencias hacia opciones reciclables o reutilizables?",
+            "\u00bfQu\u00e9 esperan las personas usuarias o clientes?",
+            "¿Qué cambios de hábitos, valores o composición poblacional son relevantes?",
         ],
-        "fuentes": "Estadísticas del DANE, estudios de consumo y publicaciones del sector.",
+        "fuentes": "Estudios demograficos, encuestas de consumo y publicaciones sociales.",
     },
 
     # T · Tecnológico
@@ -94,14 +96,14 @@ PESTEL = [
         "color": "#54758a",
         "descripcion": "Tecnologías que pueden transformar productos, procesos y canales de venta.",
         "contexto": (
-            "La automatización, el diseño de empaques y los canales digitales son temas "
-            "que se pueden revisar para el sector y la oferta comercial de la empresa."
+            "La automatización, la inteligencia artificial, la ciberseguridad y la "
+            "infraestructura digital pueden transformar procesos y modelos de negocio."
         ),
         "preguntas": [
-            "¿Qué tecnologías están cambiando el diseño o la fabricación de empaques?",
-            "¿Qué oportunidades ofrece el comercio digital?",
+            "¿Qué tecnologías emergentes pueden cambiar productos, procesos o servicios?",
+            "¿Qué oportunidades y riesgos digitales afectan a la organización?",
         ],
-        "fuentes": "Publicaciones técnicas, gremios, ferias e información corporativa.",
+        "fuentes": "Publicaciones tecnicas, centros de investigacion y asociaciones profesionales.",
     },
 
     # E · Ecológico
@@ -111,16 +113,15 @@ PESTEL = [
         "color": "#3f8063",
         "descripcion": "Condiciones ambientales, recursos, residuos y efectos del cambio climático.",
         "contexto": (
-            "En empaques de papel son relevantes la gestión de residuos, el reciclaje, "
-            "el uso de agua y energía y la disponibilidad de materias primas."
+            "Examina clima, recursos naturales, energía, contaminación, biodiversidad "
+            "y las expectativas ambientales aplicables al contexto analizado."
         ),
         "preguntas": [
             "¿Qué cambios hay en reciclaje y gestión de residuos?",
             "¿Qué riesgos ambientales pueden afectar recursos o continuidad operativa?",
         ],
         "fuentes": (
-            "Ministerio de Ambiente, IDEAM, autoridades ambientales e informes "
-            "de sostenibilidad."
+            "Autoridades ambientales, datos climaticos oficiales e informes de sostenibilidad."
         ),
     },
 
@@ -132,14 +133,14 @@ PESTEL = [
         "descripcion": "Leyes y normas que establecen obligaciones para la actividad empresarial.",
         "contexto": (
             "Se deben seguir normas ambientales, laborales y comerciales, además de "
-            "requisitos sanitarios aplicables a empaques destinados a contacto con alimentos."
+            "requisitos sectoriales aplicables a productos, servicios u operaciones."
         ),
         "preguntas": [
-            "¿Se publicaron normas nuevas o cambios que apliquen a empaques?",
-            "¿Qué requisitos aplican a materiales en contacto con alimentos?",
+            "\u00bfSe publicaron normas nuevas o cambios que apliquen a la actividad?",
+            "¿Qué normas nuevas o cambios regulatorios podrían aplicar a la actividad?",
         ],
         "fuentes": (
-            "Diario Oficial, SUIN-Juriscol, INVIMA, ministerios y autoridades competentes."
+            "Diarios oficiales, registros normativos y autoridades competentes."
         ),
     },
 ]
@@ -229,8 +230,174 @@ def pestel():
     if elegido not in [d["nombre"] for d in PESTEL]:
         elegido = "Político"
     dimension = next(d for d in PESTEL if d["nombre"] == elegido)
-    conteos = {d["nombre"]: bd.contar_senales_por_factor(d["nombre"]) for d in PESTEL}
-    return render_template("pestel.html", dimensiones=PESTEL, dimension=dimension, conteos=conteos)
+    rol = session["rol"]
+    conteos = {d["nombre"]: len(bd.consultar_senales(rol, factor=d["nombre"])) for d in PESTEL}
+    senales_dimension = bd.consultar_senales(rol, factor=elegido)
+    return render_template("pestel.html", dimensiones=PESTEL, dimension=dimension,
+                           conteos=conteos, senales=senales_dimension, nivel=nivel)
+
+
+def esquema_senales_estructuradas():
+    fecha_opcional = {"type": ["string", "null"], "format": "date"}
+    senal = {
+        "type": "object",
+        "properties": {
+            "titulo": {"type": "string", "description": "Titulo breve y fiel al acontecimiento de la fuente."},
+            "descripcion": {"type": "string", "description": "Resumen factual del acontecimiento, sin agregar datos que no aparezcan en la fuente."},
+            "implicaciones": {"type": "string", "description": "Implicacion razonada para organizaciones de cualquier sector que operan en Colombia."},
+            "factor": {"type": "string", "enum": FACTORES, "description": "La dimension PESTEL principal a la que corresponde el hecho."},
+            "ambito": {"type": "string", "enum": AMBITOS, "description": "Ambito colombiano mas directamente relacionado con el hecho."},
+            "tipo": {"type": "string", "enum": TIPOS, "description": "Oportunidad o amenaza para organizaciones de cualquier sector en Colombia."},
+            "horizonte": {"type": "string", "enum": HORIZONTES, "description": "Horizonte temporal probable de la implicacion."},
+            "impacto": {"type": "integer", "minimum": 1, "maximum": 5, "description": "Impacto potencial: 1 minimo y localizado; 3 relevante para varias organizaciones; 5 amplio o sistemico en Colombia."},
+            "probabilidad": {"type": "integer", "minimum": 1, "maximum": 5, "description": "Probabilidad de que la implicacion ocurra: 1 especulativa; 3 plausible; 5 hecho confirmado o altamente probable. Justifica la estimacion."},
+            "vigencia": {**fecha_opcional, "description": "Fecha de vencimiento solo si la fuente la indica claramente; null si no se conoce."},
+            "fecha_publicacion": {**fecha_opcional, "description": "Fecha de publicacion indicada por la fuente; null si no se encuentra."},
+            "justificacion": {"type": "string", "description": "Por que el acontecimiento corresponde a ese factor, tipo, ambito e impacto."},
+            "evidencia": {"type": "string", "description": "Frase breve, literal o casi literal, que sustenta la clasificacion."},
+        },
+        "required": ["titulo", "descripcion", "implicaciones", "factor", "ambito", "tipo", "horizonte",
+                     "impacto", "probabilidad", "vigencia", "fecha_publicacion", "justificacion", "evidencia"],
+        "additionalProperties": False,
+    }
+    return {
+        "type": "object",
+        "properties": {"senales": {"type": "array", "items": senal, "maxItems": 5,
+                                      "description": "Acontecimientos externos distintos y relevantes. Devuelve una lista vacia si la pagina no contiene una señal PESTEL clara."}},
+        "required": ["senales"],
+        "additionalProperties": False,
+    }
+
+
+@app.route("/analizar-pagina", methods=["GET", "POST"])
+@requiere("admin", "analista")
+def analizar_pagina():
+    url = ""
+    if request.method == "POST":
+        url = request.form.get("url", "").strip()
+        try:
+            partes = urlsplit(url)
+            hostname = partes.hostname
+        except ValueError:
+            hostname = None
+            partes = None
+        if (len(url) > 2048 or not partes or partes.scheme != "https" or not hostname
+                or partes.username or partes.password):
+            flash("Ingresa una URL publica valida que comience con https://")
+            return render_template("analizar.html", url=url)
+
+        api_key = os.environ.get("FIRECRAWL_API_KEY", "").strip()
+        if not api_key:
+            flash("Falta configurar FIRECRAWL_API_KEY en el entorno del servidor.")
+            return render_template("analizar.html", url=url)
+
+        payload = json.dumps({
+            "url": url,
+            "formats": [{"type": "json", "schema": esquema_senales_estructuradas()}],
+            "onlyMainContent": True,
+            "checkPromptInjection": True,
+        }).encode("utf-8")
+        solicitud = Request(
+            "https://api.firecrawl.dev/v2/scrape",
+            data=payload,
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urlopen(solicitud, timeout=90) as respuesta:
+                resultado = json.loads(respuesta.read().decode("utf-8"))
+            if not resultado.get("success"):
+                raise ValueError("Respuesta de Firecrawl sin exito")
+            datos = resultado.get("data") or {}
+            metadata = datos.get("metadata") or {}
+            extraccion = datos.get("json") or {}
+            if isinstance(extraccion, str):
+                extraccion = json.loads(extraccion)
+            senales = extraccion.get("senales", []) if isinstance(extraccion, dict) else []
+            hostname = urlsplit(url).hostname or "Fuente web"
+            title_pagina = metadata.get("title") or hostname
+            fuente = bd.buscar_fuente_por_url(url)
+            fuente_id = fuente["id"] if fuente else None
+            guardadas = 0
+            duplicadas = 0
+            senales_validas = []
+            for item in senales[:5]:
+                if not isinstance(item, dict):
+                    continue
+                item_title = str(item.get("titulo", "")).strip()[:200]
+                descripcion = str(item.get("descripcion", "")).strip()[:5000]
+                implicaciones = str(item.get("implicaciones", "")).strip()[:5000]
+                factor = item.get("factor")
+                ambito = item.get("ambito")
+                tipo = item.get("tipo")
+                horizonte = item.get("horizonte")
+                try:
+                    impacto = int(item.get("impacto"))
+                    probabilidad = int(item.get("probabilidad"))
+                except (TypeError, ValueError):
+                    continue
+                fecha_publicacion = item.get("fecha_publicacion")
+                vigencia = item.get("vigencia")
+                try:
+                    if fecha_publicacion:
+                        fecha_publicacion = date.fromisoformat(str(fecha_publicacion)[:10]).isoformat()
+                    if vigencia:
+                        vigencia = date.fromisoformat(str(vigencia)[:10]).isoformat()
+                except ValueError:
+                    fecha_publicacion, vigencia = None, None
+                if (not item_title or not descripcion or not implicaciones or factor not in FACTORES
+                        or ambito not in AMBITOS or tipo not in TIPOS or horizonte not in HORIZONTES
+                        or not (1 <= impacto <= 5 and 1 <= probabilidad <= 5)):
+                    continue
+                senales_validas.append({
+                    "titulo": item_title, "descripcion": descripcion, "implicaciones": implicaciones,
+                    "factor": factor, "ambito": ambito, "tipo": tipo, "horizonte": horizonte,
+                    "impacto": impacto, "probabilidad": probabilidad, "fecha_publicacion": fecha_publicacion,
+                    "vigencia": vigencia, "justificacion": str(item.get("justificacion", "")).strip()[:2000],
+                    "evidencia": str(item.get("evidencia", "")).strip()[:2000],
+                })
+
+            if senales_validas and not fuente_id:
+                nombre_fuente = f"{title_pagina[:120]} ({hostname})"
+                try:
+                    fuente_id = bd.crear_fuente_analizada(nombre_fuente, url)
+                except bd.DuplicadoError:
+                    huella = hashlib.sha256(url.encode("utf-8")).hexdigest()[:10]
+                    fuente_id = bd.crear_fuente_analizada(f"{title_pagina[:100]} ({hostname}) {huella}", url)
+            for item in senales_validas:
+                if bd.senal_ya_registrada(fuente_id, item["titulo"], item["factor"]):
+                    duplicadas += 1
+                    continue
+                datos_senal = (item["titulo"], item["descripcion"], item["implicaciones"], item["factor"],
+                               item["ambito"], item["tipo"], item["horizonte"], fuente_id, item["impacto"],
+                               item["probabilidad"], item["impacto"] * item["probabilidad"], item["vigencia"])
+                justificacion = item["justificacion"]
+                if item["evidencia"]:
+                    justificacion += " Evidencia de la fuente: " + item["evidencia"]
+                bd.registrar_senal_analizada(datos_senal, session["usuario"], justificacion,
+                                             item["fecha_publicacion"], date.today().isoformat())
+                guardadas += 1
+            if guardadas:
+                flash(f"Analisis completo: {guardadas} señal(es) se guardaron automaticamente en PESTEL." +
+                      (f" {duplicadas} ya existian y no se duplicaron." if duplicadas else ""))
+                return redirect(url_for("panel"))
+            if duplicadas:
+                flash("La pagina ya se habia analizado; no se duplicaron sus señales.")
+            else:
+                flash("La pagina se extrajo, pero Firecrawl no detecto señales PESTEL suficientemente claras para guardar.")
+        except HTTPError as error:
+            if error.code == 402:
+                flash("Firecrawl no tiene creditos disponibles para esta extraccion estructurada.")
+            elif error.code == 403:
+                flash("Firecrawl rechazo la solicitud. Puede ser un bloqueo de seguridad del contenido o de la cuenta.")
+            else:
+                flash(f"Firecrawl respondio con un error HTTP {error.code}. Revisa la URL y la clave API.")
+        except (URLError, TimeoutError, json.JSONDecodeError, UnicodeDecodeError):
+            flash("No se pudo conectar con Firecrawl. Intenta de nuevo en unos minutos.")
+        except (AttributeError, TypeError, ValueError):
+            flash("Firecrawl devolvio una respuesta que no se pudo interpretar.")
+
+    return render_template("analizar.html", url=url)
 
 
 @app.route("/informe")
@@ -256,7 +423,8 @@ def leer_form():
     if (f["factor"] not in FACTORES or f["ambito"] not in AMBITOS or f["tipo"] not in TIPOS
             or f["horizonte"] not in HORIZONTES):
         abort(400)
-    return (f["titulo"].strip(), f["descripcion"].strip(), f["factor"], f["ambito"], f["tipo"], f["horizonte"],
+    return (f["titulo"].strip(), f["descripcion"].strip(), f.get("implicaciones", "").strip(),
+            f["factor"], f["ambito"], f["tipo"], f["horizonte"],
             int(f["fuente_id"]) or None, imp, prob, imp * prob, f["vigencia"] or None)  # riesgo = impacto x probabilidad
 
 

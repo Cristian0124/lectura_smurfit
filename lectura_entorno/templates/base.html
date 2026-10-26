@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lectura de entorno · Smurfit Westrock</title>
+<title>Radar de entorno</title>
 <style>
  :root{--green:#24543d;--green-dark:#173b2b;--mint:#eaf1ec;--ink:#26332c;--muted:#68756d;--line:#e3e9e4;--paper:#fff;--bg:#f4f6f3;--accent:#c7a66a}
  *{box-sizing:border-box}
@@ -25,11 +25,11 @@
  @media(max-width:720px){header{gap:11px;padding:12px 16px}header b{width:100%}header span{padding:0}main{margin:24px auto;padding:0 14px 36px}h2{font-size:23px}table{display:block;overflow-x:auto;white-space:normal}th,td{min-width:105px}td:first-child{min-width:190px}}
  @media print{body{background:#fff}header,.no-imprimir{display:none}main{max-width:none;margin:0;padding:0}table{border-radius:0}}
 </style></head><body>
-<header><b>Lectura de entorno · Smurfit Westrock</b>
+<header><b>Radar de entorno</b>
 {% if session.usuario %}
  <a href="{{ url_for('pestel') }}">Metodología PESTEL</a>
  <a href="{{ url_for('panel') }}">Panel</a><a href="{{ url_for('informe') }}">Informe</a>
- {% if session.rol in ('admin','analista') %}<a href="{{ url_for('nueva') }}">Registrar señal</a><a href="{{ url_for('fuentes') }}">Fuentes</a>{% endif %}
+ {% if session.rol in ('admin','analista') %}<a href="{{ url_for('nueva') }}">Registrar señal</a><a href="{{ url_for('fuentes') }}">Fuentes</a><a href="{{ url_for('analizar_pagina') }}">Analizar página</a>{% endif %}
  {% if session.rol == 'admin' %}<a href="{{ url_for('usuarios') }}">Usuarios</a>{% endif %}
  <span>{{ session.usuario }} ({{ session.rol }})</span><a href="{{ url_for('salir') }}">Salir</a>
 {% endif %}</header>
