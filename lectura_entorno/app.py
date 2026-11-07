@@ -13,6 +13,7 @@ from flask import (Flask, Response, abort, flash, redirect, render_template,
 from werkzeug.security import check_password_hash, generate_password_hash
 from excel_export import generar_excel
 import bd
+import mercado
 
 app = Flask(__name__)
 SECRET_KEY = os.environ.get("SECRET_KEY", "").strip()
@@ -404,6 +405,69 @@ def analizar_pagina():
             flash("Firecrawl devolvio una respuesta que no se pudo interpretar.")
 
     return render_template("analizar.html", url=url)
+
+
+VARIABLES_COSTO = [
+    {"clave": "cacao_local", "nombre": "Compra local de cacao"},
+    {"clave": "empaque_primario", "nombre": "Empaque primario"},
+    {"clave": "caja_embalaje", "nombre": "Caja / embalaje"},
+    {"clave": "manteca_cacao", "nombre": "Manteca de cacao"},
+    {"clave": "etiquetas", "nombre": "Etiquetas"},
+    {"clave": "bolsas", "nombre": "Bolsas para producto"},
+    {"clave": "azucar", "nombre": "Azucar"},
+    {"clave": "leche", "nombre": "Leche / ingrediente lacteo"},
+    {"clave": "transporte", "nombre": "Transporte"},
+    {"clave": "energia", "nombre": "Energia"},
+    {"clave": "otro", "nombre": "Otro insumo o costo"},
+]
+
+
+@app.route("/mercado", methods=["GET", "POST"])
+@requiere()
+def mercado_panel():
+    if request.method == "POST":
+        if session["rol"] not in ("admin", "analista"):
+            abort(403)
+        clave = request.form.get("clave", "")
+        fecha = request.form.get("fecha", "")
+        unidad = request.form.get("unidad", "")
+        detalle = request.form.get("detalle", "").strip()[:200]
+        try:
+            valor = float(request.form.get("valor", ""))
+            date.fromisoformat(fecha)
+        except (TypeError, ValueError):
+            abort(400)
+        if clave not in [v["clave"] for v in VARIABLES_COSTO] or valor < 0 or unidad not in ("COP/kg", "COP/unidad", "COP/caja", "COP/mes", "USD/tonelada"):
+            abort(400)
+        bd.registrar_indicador(clave, valor, unidad, fecha, session["usuario"], detalle)
+        flash("Costo o cotizacion guardado en el historico interno.")
+        return redirect(url_for("mercado_panel"))
+    registros = bd.listar_indicadores()
+    return render_template("mercado.html", variables=VARIABLES_COSTO,
+                           nombres={v["clave"]: v["nombre"] for v in VARIABLES_COSTO},
+                           registros=registros)
+
+
+@app.route("/api/dolar")
+def api_dolar():
+    if "usuario" not in session:
+        return {"error": "La sesion vencio. Inicia sesion de nuevo."}, 401
+    try:
+        return mercado.obtener_dolar()
+    except Exception:
+        app.logger.exception("No se pudo consultar la TRM")
+        return {"error": "La fuente oficial de TRM no esta disponible ahora."}, 503
+
+
+@app.route("/api/cafe")
+def api_cafe():
+    if "usuario" not in session:
+        return {"error": "La sesion vencio. Inicia sesion de nuevo."}, 401
+    try:
+        return mercado.obtener_precios_cafe()
+    except Exception:
+        app.logger.exception("No se pudieron consultar precios de cafe en FAOSTAT")
+        return {"error": "FAOSTAT no esta disponible ahora. Intenta mas tarde."}, 503
 
 
 @app.route("/informe")

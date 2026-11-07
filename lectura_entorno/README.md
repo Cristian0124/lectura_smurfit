@@ -38,3 +38,11 @@ En el primer arranque, la aplicación crea las tablas y añade columnas faltante
 En local se conservan las cuentas demo. En Neon se crea solo el administrador configurado en las variables iniciales, evitando publicar las credenciales demo conocidas.
 
 La conexión real a Neon y Firecrawl solo se puede confirmar después de configurar sus credenciales en Render y probar desde el servicio desplegado.
+
+## Tablero de mercado y costos
+
+La vista **Mercado y costos** muestra cacao diario de bolsa desde FEPCACAO, la TRM diaria oficial de la Superintendencia Financiera de Colombia (datos.gov.co) y el precio anual al productor de cafe verde por pais desde FAOSTAT (FAO), en USD por tonelada. El selector solo lista paises con dato disponible y muestra el ano del ultimo reporte de cada uno. El precio anual al productor no equivale a una cotizacion diaria de bolsa.
+
+Firecrawl sigue sirviendo para analizar una página bajo demanda y registrar señales PESTEL. No es necesario para leer estos indicadores y no es un servicio de cotización en tiempo real.
+
+La TRM se obtiene del conjunto publico de datos.gov.co suministrado por la Superintendencia Financiera. El precio de cafe se lee del archivo oficial FAOSTAT Producer Prices; los archivos FAOSTAT se almacenan en memoria por 24 horas. Firecrawl no se utiliza para estos valores, porque las fuentes ofrecen datos estructurados y oficiales; el analisis Firecrawl de paginas sigue disponible para senales PESTEL.

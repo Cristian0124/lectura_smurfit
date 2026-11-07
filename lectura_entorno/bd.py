@@ -89,6 +89,9 @@ def _crear_esquema(conexion):
             """CREATE TABLE IF NOT EXISTS comentarios(id BIGSERIAL PRIMARY KEY, senal_id BIGINT NOT NULL
                 REFERENCES senales(id), autor TEXT NOT NULL, contenido TEXT NOT NULL,
                 creado TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""",
+            """CREATE TABLE IF NOT EXISTS indicadores_empresa(id BIGSERIAL PRIMARY KEY, clave TEXT NOT NULL,
+                valor NUMERIC NOT NULL, unidad TEXT NOT NULL, fecha DATE NOT NULL, autor TEXT NOT NULL, detalle TEXT,
+                creado TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""",
         ]
         for sql in sentencias:
             conexion.execute(sql)
@@ -96,6 +99,7 @@ def _crear_esquema(conexion):
             ("fuentes", "url", "TEXT"), ("senales", "justificacion", "TEXT"),
             ("senales", "fecha_publicacion", "TEXT"), ("senales", "fecha_identificacion", "TEXT"),
             ("senales", "implicaciones", "TEXT"),
+            ("indicadores_empresa", "detalle", "TEXT"),
         ]:
             existe = conexion.execute(
                 "SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() "
@@ -117,7 +121,13 @@ def _crear_esquema(conexion):
         CREATE TABLE IF NOT EXISTS comentarios(id INTEGER PRIMARY KEY, senal_id INTEGER NOT NULL
             REFERENCES senales(id), autor TEXT NOT NULL, contenido TEXT NOT NULL,
             creado TEXT DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS indicadores_empresa(id INTEGER PRIMARY KEY, clave TEXT NOT NULL,
+            valor REAL NOT NULL, unidad TEXT NOT NULL, fecha TEXT NOT NULL, autor TEXT NOT NULL, detalle TEXT,
+            creado TEXT DEFAULT CURRENT_TIMESTAMP);
         """)
+        columnas_indicadores = {fila[1] for fila in conexion.execute("PRAGMA table_info(indicadores_empresa)")}
+        if "detalle" not in columnas_indicadores:
+            conexion.execute("ALTER TABLE indicadores_empresa ADD COLUMN detalle TEXT")
         columnas_fuentes = {fila[1] for fila in conexion.execute("PRAGMA table_info(fuentes)")}
         if "url" not in columnas_fuentes:
             conexion.execute("ALTER TABLE fuentes ADD COLUMN url TEXT")
@@ -280,3 +290,12 @@ def agregar_usuario(usuario, clave_hash, rol):
         if _es_integridad(error):
             raise DuplicadoError from error
         raise
+
+def registrar_indicador(clave, valor, unidad, fecha, autor, detalle=""):
+    _ejecutar("INSERT INTO indicadores_empresa(clave,valor,unidad,fecha,autor,detalle) VALUES(?,?,?,?,?,?)",
+              (clave, valor, unidad, fecha, autor, detalle))
+    obtener_conexion().commit()
+
+
+def listar_indicadores():
+    return _ejecutar("SELECT * FROM indicadores_empresa ORDER BY fecha DESC, id DESC LIMIT 250").fetchall()

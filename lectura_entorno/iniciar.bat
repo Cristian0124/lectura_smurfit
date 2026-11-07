@@ -1,10 +1,27 @@
 @echo off
-setlocal
+setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
 
+rem Prefer the active virtual environment (for example, the repository .venv).
+if defined VIRTUAL_ENV (
+    set "PYTHON=%VIRTUAL_ENV%\Scripts\python.exe"
+    if exist "!PYTHON!" (
+        "!PYTHON!" -c "from flask import Flask" >nul 2>&1
+        if not errorlevel 1 goto iniciar
+    )
+)
+
+rem Use the repository virtual environment when this script is started directly.
+set "PYTHON=%~dp0..\.venv\Scripts\python.exe"
+if exist "!PYTHON!" (
+    "!PYTHON!" -c "from flask import Flask" >nul 2>&1
+    if not errorlevel 1 goto iniciar
+)
+
+rem Last resort: prepare the bundled local Python environment.
 set "PYTHON=%~dp0.runtime\python\python.exe"
 if not exist "%PYTHON%" goto preparar
-"%PYTHON%" -c "import flask" >nul 2>&1
+"!PYTHON!" -c "from flask import Flask" >nul 2>&1
 if errorlevel 1 goto preparar
 goto iniciar
 

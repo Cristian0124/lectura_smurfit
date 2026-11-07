@@ -28,7 +28,7 @@
 <header><b>Radar de entorno</b>
 {% if session.usuario %}
  <a href="{{ url_for('pestel') }}">Metodología PESTEL</a>
- <a href="{{ url_for('panel') }}">Panel</a><a href="{{ url_for('informe') }}">Informe</a>
+ <a href="{{ url_for('panel') }}">Panel</a><a href="{{ url_for('mercado_panel') }}">Mercado y costos</a><a href="{{ url_for('informe') }}">Informe</a>
  {% if session.rol in ('admin','analista') %}<a href="{{ url_for('nueva') }}">Registrar señal</a><a href="{{ url_for('fuentes') }}">Fuentes</a><a href="{{ url_for('analizar_pagina') }}">Analizar página</a>{% endif %}
  {% if session.rol == 'admin' %}<a href="{{ url_for('usuarios') }}">Usuarios</a>{% endif %}
  <span>{{ session.usuario }} ({{ session.rol }})</span><a href="{{ url_for('salir') }}">Salir</a>
