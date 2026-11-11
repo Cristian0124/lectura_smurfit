@@ -39,7 +39,7 @@ def obtener_dolar():
 
 
 def obtener_precios_cafe():
-    """Latest country-level farm-gate coffee prices reported to FAOSTAT (USD/tonne)."""
+    """Latest Colombian farm-gate coffee prices reported to FAOSTAT (USD/tonne)."""
     ahora = time.time()
     if _cache_cafe["datos"] and ahora < _cache_cafe["vence"]:
         return _cache_cafe["datos"]
@@ -50,14 +50,24 @@ def obtener_precios_cafe():
                        if n.lower().endswith(".csv") and "all_data" in n.lower()), None)
         if not nombre:
             raise ValueError("FAOSTAT prices file has no data CSV")
-        registros = {}
+        historico_colombia = {}
         with zf.open(nombre) as raw:
             lector = csv.DictReader(io.TextIOWrapper(raw, encoding="utf-8-sig", newline=""))
             for fila in lector:
+                # The normalized FAOSTAT bulk file is ordered by Area Code.
+                # Colombia's FAO area code is 44, so stop once its block ends
+                # instead of parsing the remaining million-plus observations.
+                try:
+                    area_code = int(fila.get("Area Code", ""))
+                except (TypeError, ValueError):
+                    continue
+                if area_code > 44 and historico_colombia:
+                    break
+                if area_code != 44:
+                    continue
                 item = (fila.get("Item") or "").strip().casefold()
                 elemento = (fila.get("Element") or "").strip().casefold()
                 unidad = (fila.get("Unit") or "").strip()
-                area = (fila.get("Area") or "").strip()
                 mes = (fila.get("Months") or "Annual").strip().casefold()
                 if item != "coffee, green" or "producer price" not in elemento:
                     continue
@@ -70,19 +80,15 @@ def obtener_precios_cafe():
                     value = float((fila.get("Value") or "").replace(",", ""))
                 except (TypeError, ValueError):
                     continue
-                if not area or value < 0:
+                if value < 0:
                     continue
                 unit = "USD/tonne"
-                registros.setdefault(area, {})[year] = {"year": year, "value": value, "unit": unit}
+                historico_colombia[year] = {"year": year, "value": value, "unit": unit}
 
-    paises = []
-    for area, years in registros.items():
-        historico = [years[y] for y in sorted(years)]
-        if historico:
-            paises.append({"pais": area, "ultimo": historico[-1], "historico": historico[-12:]})
-    paises.sort(key=lambda p: p["pais"].casefold())
-    if not paises:
-        raise ValueError("FAOSTAT returned no country producer price observations in USD")
+    historico = [historico_colombia[y] for y in sorted(historico_colombia)]
+    if not historico:
+        raise ValueError("FAOSTAT returned no Colombian coffee producer price observations in USD")
+    paises = [{"pais": "Colombia", "ultimo": historico[-1], "historico": historico[-12:]}]
     datos = {"paises": paises, "frecuencia": "Anual; ultimo dato reportado por cada pais",
              "fuente": "FAO, FAOSTAT - Producer Prices (Coffee, green)",
              "url": URL_FAO_PP, "consultado": datetime.now().isoformat(timespec="minutes")}
