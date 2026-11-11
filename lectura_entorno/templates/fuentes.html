@@ -1,7 +1,9 @@
 {% extends "base.html" %}{% block c %}
 <h2>Fuentes de información</h2>
-<p>Registra aquí una fuente que el grupo haya decidido consultar. Después podrás seleccionarla al registrar una señal para indicar de dónde salió la información. Agregar una fuente solo la guarda en este catálogo; no descarga ni analiza su contenido automáticamente.</p>
-<table><tr><th>Fuente</th><th>Tipo</th><th>Confiabilidad</th></tr>{% for f in lista %}<tr><td>{% if f.url %}<a href="{{ f.url }}" target="_blank" rel="noopener">{{ f.nombre }}</a>{% else %}{{ f.nombre }}{% endif %}</td><td>{{ f.tipo }}</td><td>{{ f.confiabilidad }}</td></tr>{% endfor %}</table>
+<p>El catálogo incluye entidades oficiales de Colombia y organismos internacionales. El Worker consulta por Firecrawl las páginas habilitadas según su frecuencia; la fecha de revisión corresponde al último intento, no garantiza que el sitio publique contenido nuevo en cada consulta.</p>
+<table><tr><th>Fuente</th><th>Tipo</th><th>Confiabilidad</th><th>Automatización</th><th>Última revisión (UTC)</th></tr>{% for f in lista %}<tr><td>{% if f.url %}<a href="{{ f.url }}" target="_blank" rel="noopener">{{ f.nombre }}</a>{% else %}{{ f.nombre }}{% endif %}</td><td>{{ f.tipo }}</td><td>{{ f.confiabilidad }}</td><td>
+<form method="post" class="no-imprimir"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="accion" value="programar"><input type="hidden" name="fuente_id" value="{{ f.id }}"><label><input type="checkbox" name="escaneo_habilitado" {{ 'checked' if f.escaneo_habilitado }}> Consultar</label><label>Frecuencia<select name="frecuencia_minutos">{% for mins, etiqueta in [(30,'30 minutos'),(60,'1 hora'),(180,'3 horas'),(360,'6 horas'),(1440,'24 horas')] %}<option value="{{ mins }}" {{ 'selected' if (f.frecuencia_minutos or 60)==mins }}>{{ etiqueta }}</option>{% endfor %}</select></label><button>Guardar</button></form>
+</td><td>{{ f.ultima_revision or 'Pendiente' }}</td></tr>{% endfor %}</table>
 <h3>Agregar fuente</h3>
 <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf }}">
  <label>Nombre <input name="nombre" required></label>

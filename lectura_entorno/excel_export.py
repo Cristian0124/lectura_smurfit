@@ -8,10 +8,21 @@ ENCABEZADOS = [
     "Título", "Descripción", "Factor PESTEL", "Ámbito", "Tipo", "Horizonte",
     "Fuente", "Confiabilidad", "Impacto", "Probabilidad", "Riesgo",
     "Nivel de riesgo", "Vigencia", "Estado", "Autor", "Fecha de registro",
-    "Fecha de publicacion", "Fecha de identificacion", "Justificacion PESTEL", "URL de fuente", "Implicaciones",
+    "Fecha de publicacion", "Fecha de extraccion", "Justificacion PESTEL", "URL de fuente",
+    "URL de publicacion original", "Origen", "Region afectada", "Impacto en produccion",
+    "Impacto en comercializacion", "Fecha de actualizacion", "Tipo de publicacion", "Numero de norma",
+    "Entidad emisora", "Implicaciones",
 ]
-ANCHOS = [34, 58, 20, 25, 17, 18, 28, 17, 12, 14, 12, 18, 16, 18, 18, 22, 20, 20, 60, 45, 55]
+ANCHOS = [34, 58, 20, 25, 17, 18, 28, 17, 12, 14, 12, 18, 16, 18, 18, 22, 20, 20, 60, 40, 45, 16, 24, 45, 45, 22, 20, 24, 28, 55]
 LETRAS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def _columna(indice):
+    resultado = ""
+    while indice:
+        indice, resto = divmod(indice - 1, 26)
+        resultado = LETRAS[resto] + resultado
+    return resultado
 
 
 def _celda(referencia, valor, estilo=0, numerica=False):
@@ -24,7 +35,7 @@ def _celda(referencia, valor, estilo=0, numerica=False):
 
 def generar_excel(senales, nivel):
     filas = ['<row r="1" ht="30" customHeight="1">' + "".join(
-        _celda(f"{LETRAS[i]}1", texto, 1) for i, texto in enumerate(ENCABEZADOS)) + "</row>"]
+        _celda(f"{_columna(i + 1)}1", texto, 1) for i, texto in enumerate(ENCABEZADOS)) + "</row>"]
     estilos_riesgo = {"Alto": 3, "Medio": 4, "Bajo": 5}
     for numero_fila, senal in enumerate(senales, 2):
         riesgo = nivel(senal["puntaje"])
@@ -33,12 +44,16 @@ def generar_excel(senales, nivel):
                  senal["impacto"], senal["probabilidad"], senal["puntaje"], riesgo,
                  senal["vigencia"] or "-", senal["estado"], senal["autor"] or "-", senal["creada"] or "-",
                  senal["fecha_publicacion"] or "-", senal["fecha_identificacion"] or "-",
-                 senal["justificacion"] or "-", senal["fuente_url"] or "-", senal["implicaciones"] or "-"]
+                 senal["justificacion"] or "-", senal["fuente_url"] or "-", senal["url_original"] or "-",
+                 senal["origen"] or "manual", senal["region_afectada"] or "-",
+                 senal["impacto_produccion"] or "-", senal["impacto_comercializacion"] or "-",
+                 senal["actualizada"] or "-", senal["tipo_publicacion"] or "-",
+                 senal["numero_norma"] or "-", senal["entidad_emisora"] or "-", senal["implicaciones"] or "-"]
         estilo_fila = 2 if numero_fila % 2 == 0 else 0
         celdas = []
         for indice, valor in enumerate(datos):
             estilo = estilos_riesgo[riesgo] if indice == 10 else estilo_fila
-            celdas.append(_celda(f"{LETRAS[indice]}{numero_fila}", valor, estilo,
+            celdas.append(_celda(f"{_columna(indice + 1)}{numero_fila}", valor, estilo,
                                  numerica=indice in (8, 9, 10)))
         filas.append(f'<row r="{numero_fila}" ht="36" customHeight="1">' + "".join(celdas) + "</row>")
 
@@ -49,7 +64,7 @@ def generar_excel(senales, nivel):
         '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
         '<sheetViews><sheetView showGridLines="0" workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
         f'<cols>{columnas}</cols><sheetData>{"".join(filas)}</sheetData>'
-        f'<autoFilter ref="A1:{LETRAS[len(ENCABEZADOS)-1]}{total_filas}"/><pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>'
+        f'<autoFilter ref="A1:{_columna(len(ENCABEZADOS))}{total_filas}"/><pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>'
         '</worksheet>')
     estilos = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
@@ -86,7 +101,7 @@ def generar_excel(senales, nivel):
           </Relationships>''')
         archivo.writestr("xl/workbook.xml", '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
           <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-          <sheets><sheet name="Lectura de entorno" sheetId="1" r:id="rId1"/></sheets></workbook>''')
+          <sheets><sheet name="Radar Cafetero" sheetId="1" r:id="rId1"/></sheets></workbook>''')
         archivo.writestr("xl/_rels/workbook.xml.rels", '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
           <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
           <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>

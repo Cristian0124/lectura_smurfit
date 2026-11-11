@@ -1,19 +1,57 @@
 {% extends "base.html" %}{% block c %}
-<h2>Señales del entorno</h2>
-{% if alertas.altas %}<div class="alerta">{{ alertas.altas|length }} señal(es) de riesgo alto sin cerrar: {{ alertas.altas|map(attribute='titulo')|join(', ') }}.</div>{% endif %}
-{% if alertas.vencidas %}<div class="alerta">{{ alertas.vencidas|length }} señal(es) con vigencia vencida: {{ alertas.vencidas|map(attribute='titulo')|join(', ') }}.</div>{% endif %}
-<form method="get" class="no-imprimir">
- Factor <select name="factor"><option value="">Todos</option>{% for f in factores %}<option {{ 'selected' if f==fa }}>{{ f }}</option>{% endfor %}</select>
- Horizonte <select name="horizonte"><option value="">Todos</option>{% for h in horizontes %}<option {{ 'selected' if h==ho }}>{{ h }}</option>{% endfor %}</select>
- <button>Filtrar</button> <a href="{{ url_for('exportar', factor=fa, horizonte=ho) }}">Descargar Excel</a>
-</form>
-<p>{% for f, n in resumen.items() %}{{ f }}: {{ n }}{{ " | " if not loop.last }}{% endfor %} — total {{ senales|length }}</p>
-{% if not senales %}<p>No hay señales{% if session.rol == 'decisor' %} publicadas{% endif %} todavía.</p>{% else %}
-<table><tr><th>Señal</th><th>Factor / ámbito</th><th>Tipo</th><th>Horizonte</th><th>Fuente</th><th>Riesgo</th><th>Vigencia</th><th>Estado</th><th></th></tr>
-{% for s in senales %}<tr>
- <td><b>{{ s.titulo }}</b><br>{{ s.descripcion }}{% if s.implicaciones %}<br><small><b>Implicaciones:</b> {{ s.implicaciones }}</small>{% endif %}{% if s.fecha_publicacion %}<br><small>Publicada: {{ s.fecha_publicacion }}</small>{% endif %}{% if s.fecha_identificacion %}<br><small>Identificada: {{ s.fecha_identificacion }}</small>{% endif %}{% if s.justificacion %}<br><small><b>Justificacion:</b> {{ s.justificacion }}</small>{% endif %}</td><td>{{ s.factor }}<br>{{ s.ambito }}</td><td>{{ s.tipo }}</td><td>{{ s.horizonte }}</td>
- <td>{% if s.fuente_url %}<a href="{{ s.fuente_url }}" target="_blank" rel="noopener">{{ s.fuente }}</a>{% else %}{{ s.fuente or '-' }}{% endif %}{% if s.conf %}<br>confiabilidad {{ s.conf }}{% endif %}</td>
- <td class="{{ nivel(s.puntaje) }}">{{ s.puntaje }} ({{ nivel(s.puntaje) }})</td>
- <td>{{ s.vigencia or '-' }}{% if s.vigencia and s.vigencia < hoy %} <b class="Alto">vencida</b>{% endif %}</td><td>{{ s.estado }}</td>
- <td>{% if session.rol in ('admin','analista') %}<a href="{{ url_for('editar', sid=s.id) }}">Editar</a>{% endif %}</td></tr>{% endfor %}
-</table>{% endif %}{% endblock %}
+<style>
+.dashboard-title{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.dashboard-title p{color:var(--muted);max-width:760px}.actions{display:flex;gap:8px;flex-wrap:wrap}.actions a,.pill{display:inline-block;padding:7px 11px;border:1px solid var(--line);border-radius:7px;background:#fff;text-decoration:none;font-size:13px}.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:18px 0}.stat{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px}.stat small{color:var(--muted)}.stat strong{display:block;font-size:22px;color:var(--green-dark)}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.cards section{margin:0}.cards strong{display:block;font-size:22px;color:var(--green-dark);margin:7px 0}.cards small,.muted{color:var(--muted)}.news{background:#fff;border:1px solid var(--line);border-radius:10px;padding:15px;margin:12px 0}.news h3{margin:0 0 7px;font-size:17px}.news p{margin:7px 0}.filters{align-items:end}.filters label{margin:0}.filters input,.filters select{display:block}.filter-actions{display:flex;align-items:center;gap:10px}.table-wrap{overflow-x:auto}@media(max-width:1050px){.cards{grid-template-columns:repeat(2,1fr)}}@media(max-width:900px){.stats{grid-template-columns:repeat(3,1fr)}}@media(max-width:650px){.stats,.cards{grid-template-columns:repeat(2,1fr)}.dashboard-title{display:block}}@media(max-width:430px){.stats,.cards{grid-template-columns:1fr}}
+</style>
+<div class="dashboard-title"><div><h2>Radar Cafetero</h2><p>Vigilancia estratégica de acontecimientos que pueden afectar la producción y comercialización del café en Colombia y sus mercados internacionales.</p></div>
+<div class="actions"><a href="{{ url_for('exportar', **request.args) }}">Descargar Excel</a><a href="{{ url_for('exportar_pdf', **request.args) }}">Descargar PDF</a></div></div>
+
+<div class="stats">
+<div class="stat"><small>Acontecimientos</small><strong>{{ senales|length }}</strong></div>
+<div class="stat"><small>Oportunidades</small><strong>{{ indicadores.oportunidades }}</strong></div>
+<div class="stat"><small>Amenazas</small><strong>{{ indicadores.amenazas }}</strong></div>
+<div class="stat"><small>Ambientales</small><strong>{{ indicadores.ambientales }}</strong></div>
+<div class="stat"><small>Económicas</small><strong>{{ indicadores.economicas }}</strong></div>
+<div class="stat"><small>Políticas y legales</small><strong>{{ indicadores.politicas_legales }}</strong></div>
+</div>
+
+{% if alertas.altas %}<div class="alerta">{{ alertas.altas|length }} señal(es) abierta(s) de riesgo alto: {{ alertas.altas|map(attribute='titulo')|join(', ') }}.</div>{% endif %}
+<section><h3>Precios e indicadores</h3><div class="cards">
+<section><small>Precio interno de referencia FNC</small><strong>{% if precios.precio_interno_fnc %}{{ precios.precio_interno_fnc.valor|cop }} COP/carga{% else %}Pendiente de revisión{% endif %}</strong><span class="muted">{% if precios.precio_interno_fnc %}Vigencia: {{ precios.precio_interno_fnc.fecha }} · Revisado: {{ precios.precio_interno_fnc.consultado }} UTC{% else %}La consulta programada guardará el dato cuando valor, unidad y fecha estén verificados.{% endif %}</span><p><a href="https://federaciondecafeteros.org/" target="_blank" rel="noopener">Abrir precio diario FNC</a></p><small>Compra de café pergamino seco, carga de 125 kg. No es el precio final que recibe cada productor.</small></section>
+<section><small>TRM Colombia</small><strong id="precio-trm">Consultando…</strong><span id="fecha-trm" class="muted"></span><p><a href="https://www.datos.gov.co/Econom-a-y-Finanzas/Tasa-de-Cambio-Representativa-del-Mercado-TRM/32sa-8pi3" target="_blank" rel="noopener">Superintendencia Financiera / datos.gov.co</a></p></section>
+<section><small>Precio al productor de café verde</small><strong id="precio-faostat">Consultando…</strong><span id="fecha-faostat" class="muted"></span><p><a href="https://www.fao.org/faostat/" target="_blank" rel="noopener">FAOSTAT</a></p><small>Último dato anual reportado por país, no es una cotización internacional diaria.</small></section>
+<section><small>Indicador compuesto internacional ICO</small><strong>{% if precios.precio_ico_icip %}{{ '%.2f'|format(precios.precio_ico_icip.valor) }} US cents/lb{% else %}Pendiente de revisión{% endif %}</strong><span class="muted">{% if precios.precio_ico_icip %}Fecha: {{ precios.precio_ico_icip.fecha }} · Revisado: {{ precios.precio_ico_icip.consultado }} UTC{% else %}La revisión programada solo muestra un dato diario si la fuente permite verificarlo.{% endif %}</span><p><a href="https://www.ico.org/resources/public-market-information/" target="_blank" rel="noopener">ICO · I-CIP</a></p><small>Indicador diario de referencia, US cents/lb; no equivale al precio interno FNC.</small></section>
+</div><p id="estado-indicadores" class="muted" aria-live="polite"></p>
+<p class="muted">El factor de rendimiento no se estima en este panel. Se mostrará cuando exista una publicación oficial y un método verificable para el dato consultado.</p></section>
+
+<section><h3>Última revisión automática</h3>{% if ultima_revision and ultima_revision.finalizada %}<p>{{ ultima_revision.finalizada }} UTC · {{ ultima_revision.procesadas }} páginas revisadas · {{ ultima_revision.nuevas }} nuevas · {{ ultima_revision.actualizadas }} actualizadas con historial · {{ ultima_revision.duplicadas }} sin cambios · {{ ultima_revision.errores }} errores.</p>{% else %}<p>Sin ejecuciones registradas. La revisión requiere el Worker/Cron de Render, las fuentes habilitadas y FIRECRAWL_API_KEY.</p>{% endif %}</section>
+
+<form method="get" class="no-imprimir filters">
+<label>Factor PESTEL<select name="factor"><option value="">Todos</option>{% for f in factores %}<option value="{{ f }}" {{ 'selected' if filtros.get('factor')==f }}>{{ f }}</option>{% endfor %}</select></label>
+<label>Tipo<select name="tipo"><option value="">Todos</option>{% for t in tipos %}<option value="{{ t }}" {{ 'selected' if filtros.get('tipo')==t }}>{{ t }}</option>{% endfor %}</select></label>
+<label>Región o país<select name="region"><option value="">Todas</option>{% for r in regiones %}<option value="{{ r }}" {{ 'selected' if filtros.get('region')==r }}>{{ r }}</option>{% endfor %}</select></label>
+<label>Fuente<select name="fuente"><option value="">Todas</option>{% for f in fuentes %}<option value="{{ f }}" {{ 'selected' if filtros.get('fuente')==f }}>{{ f }}</option>{% endfor %}</select></label>
+<label>Riesgo<select name="riesgo"><option value="">Todos</option>{% for r in ['Alto','Medio','Bajo'] %}<option value="{{ r }}" {{ 'selected' if filtros.get('riesgo')==r }}>{{ r }}</option>{% endfor %}</select></label>
+<label>Desde<input name="fecha_desde" type="date" value="{{ filtros.get('fecha_desde','') }}"></label>
+<label>Hasta<input name="fecha_hasta" type="date" value="{{ filtros.get('fecha_hasta','') }}"></label>
+<div class="filter-actions"><button>Filtrar</button><a href="{{ url_for('panel') }}">Limpiar</a></div></form>
+
+<section><h3>Acontecimientos recientes</h3>
+{% if not senales %}<p>No hay señales que coincidan con estos filtros{% if session.rol == 'decisor' %} o estén publicadas{% endif %}.</p>{% else %}
+{% for s in senales %}<article class="news"><h3>{{ s.titulo }}</h3><p>{{ s.descripcion or 'Sin resumen disponible.' }}</p>
+<p><span class="pill">{{ s.factor }}</span> <span class="pill">{{ s.tipo }}</span> <span class="pill">Riesgo {{ nivel(s.puntaje) }} · {{ s.puntaje }}/25</span> {% if s.tipo_publicacion %}<span class="pill">{{ s.tipo_publicacion }}</span>{% endif %}</p>
+<p class="muted">{{ s.fuente or 'Fuente sin identificar' }} · Publicado: {{ s.fecha_publicacion or 'No disponible' }} · Extraído: {{ s.fecha_identificacion or 'No disponible' }}{% if s.actualizada %} · Actualizado: {{ s.actualizada }} UTC{% endif %} · {{ s.origen or 'manual' }}</p>
+<p class="muted">Ámbito: {{ s.ambito }} · Horizonte: {{ s.horizonte }} · Puntaje de riesgo: {{ s.puntaje }}/25 (impacto {{ s.impacto }}/5 × probabilidad {{ s.probabilidad }}/5)</p>
+{% if s.region_afectada %}<p><b>Región:</b> {{ s.region_afectada }}</p>{% endif %}{% if s.impacto_produccion and s.impacto_produccion!='No disponible' %}<p><b>Producción:</b> {{ s.impacto_produccion }}</p>{% endif %}{% if s.impacto_comercializacion and s.impacto_comercializacion!='No disponible' %}<p><b>Comercialización:</b> {{ s.impacto_comercializacion }}</p>{% endif %}
+{% if s.tipo_publicacion=='Norma' %}<p><b>Norma:</b> {{ s.numero_norma or 'No disponible' }} · <b>Entidad emisora:</b> {{ s.entidad_emisora or 'No disponible' }} · <b>Vigencia:</b> {{ s.vigencia or 'No disponible' }}</p>{% endif %}
+{% if s.justificacion %}<details><summary>Justificación y evidencia</summary><p>{{ s.justificacion }}</p></details>{% endif %}
+{% if s.url_original or s.fuente_url %}<p><a href="{{ s.url_original or s.fuente_url }}" target="_blank" rel="noopener">Consultar publicación original</a></p>{% endif %}
+{% if session.rol in ('admin','analista') %}<a href="{{ url_for('editar', sid=s.id) }}">Editar y dar seguimiento</a>{% endif %}</article>{% endfor %}{% endif %}</section>
+
+<script>
+const formatMoney=(n,d=0)=>new Intl.NumberFormat('es-CO',{maximumFractionDigits:d,minimumFractionDigits:d}).format(n);
+async function getJson(url){const r=await fetch(url);const d=await r.json();if(!r.ok)throw Error(d.error||'Fuente no disponible');return d;}
+async function cargarTRM(){try{const d=await getJson('{{ url_for("api_dolar") }}');document.getElementById('precio-trm').textContent='$ '+formatMoney(d.cop_usd,2)+' COP/USD';document.getElementById('fecha-trm').textContent='Vigente desde '+d.fecha;}catch(e){document.getElementById('precio-trm').textContent='No disponible';}}
+async function cargarFAO(){try{const d=await getJson('{{ url_for("api_cafe") }}');const p=d.paises.find(x=>x.pais==='Colombia');document.getElementById('precio-faostat').textContent=p?'US$ '+formatMoney(p.ultimo.value,0)+'/t':'No hay dato de Colombia';document.getElementById('fecha-faostat').textContent=p?'Colombia · '+p.ultimo.year+' · precio anual al productor':'Consulta FAOSTAT';}catch(e){document.getElementById('precio-faostat').textContent='No disponible';}}
+Promise.all([cargarTRM(),cargarFAO()]);
+</script>
+{% endblock %}

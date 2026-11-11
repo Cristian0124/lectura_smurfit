@@ -9,7 +9,7 @@
 @media(max-width:700px){.dimensiones{grid-template-columns:repeat(3,1fr)}.detalle-grid{grid-template-columns:1fr}}
 </style>
 <h2>Metodología PESTEL</h2>
-<p class="pestel-intro">Explora seis factores externos que pueden influir en una organizacion. Adapta esta guia al pais, sector y mercado que estes analizando.</p>
+<p class="pestel-intro">Explora seis factores externos que pueden influir en la producción y comercialización del café colombiano. PESTEL clasifica el entorno cafetero; no reemplaza la validación de evidencia ni la metodología ADM de arquitectura empresarial.</p>
 <div class="dimensiones">
 {% for d in dimensiones %}<a class="dimension {{ 'activa' if d.nombre == dimension.nombre }}" style="--tono:{{ d.color }}" href="{{ url_for('pestel', dimension=d.nombre) }}">
 <strong>{{ d.letra }}</strong>{{ d.nombre }}<small><br>{{ conteos[d.nombre] }} señales</small></a>{% endfor %}
@@ -24,7 +24,7 @@
 <h4>En el proyecto</h4><p>Señales registradas en esta dimensión: <b>{{ conteos[dimension.nombre] }}</b>.</p>
 {% if session.rol in ('admin','analista') %}<p><a href="{{ url_for('nueva') }}">Registrar una señal {{ dimension.nombre|lower }}</a></p>{% endif %}</div>
 </div>
-<p class="nota">Los textos de esta guia orientan la investigacion; no son hallazgos confirmados. Revisa cada senal, su evidencia y su relacion con la organizacion antes de tomar decisiones.</p>
+<p class="nota">Los textos de esta guía orientan la investigación; no son hallazgos confirmados. Revisa cada señal, su evidencia y su relación con el sector cafetero antes de tomar decisiones.</p>
 </section>
 <section>
 <h3>Senales guardadas en {{ dimension.nombre }}</h3>

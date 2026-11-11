@@ -16,3 +16,23 @@ services:
         sync: false
       - key: SECRET_KEY
         generateValue: true
+  - type: cron
+    name: radar-cafetero-fuentes
+    runtime: python
+    rootDir: lectura_entorno
+    schedule: "0 * * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python worker.py
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: FIRECRAWL_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: INITIAL_ADMIN_USER
+        sync: false
+      - key: INITIAL_ADMIN_PASSWORD
+        sync: false
+      - key: RADAR_INDICADORES_FRECUENCIA_MINUTOS
+        value: "360"
