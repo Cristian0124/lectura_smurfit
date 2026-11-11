@@ -21,6 +21,8 @@ app = Flask(__name__)
 _cache_precio_fnc = {"vence": 0, "dato": None}
 _cache_precio_ico = {"vence": 0, "dato": None}
 _actualizacion_radar_lock = threading.Lock()
+URL_PRECIO_FNC = "https://federaciondecafeteros.org/aprenda-a-vender-su-cafe/"
+URL_PRECIO_ICO = "https://ico.org/stats/"
 SECRET_KEY = os.environ.get("SECRET_KEY", "").strip()
 if os.environ.get("DATABASE_URL") and not SECRET_KEY:
     raise RuntimeError("SECRET_KEY debe configurarse en el entorno de producción.")
@@ -589,9 +591,9 @@ def api_precio_fnc():
         "fecha": {"type": "string", "format": "date", "description": "Fecha de vigencia del precio."},
         "unidad": {"type": "string", "enum": ["COP/carga de 125 kg"]},
     }, "required": ["valor", "fecha", "unidad"], "additionalProperties": False}
-    payload = json.dumps({"url": "https://federaciondecafeteros.org/",
+    payload = json.dumps({"url": URL_PRECIO_FNC,
         "formats": [{"type": "json", "schema": esquema,
-                     "prompt": "Extrae el precio interno de referencia vigente para cafe pergamino seco por carga de 125 kg y su fecha exacta. No uses precios de bolsa como si fueran precio interno. Si la pagina no muestra ambos datos, responde con valor 0 y una fecha vacia."}],
+                     "prompt": "En la seccion Precio interno de referencia, extrae el valor en COP por carga de 125 kg de cafe pergamino seco y la fecha que aparece junto a ese precio. No uses Bolsa de NY, tasa de cambio, MeCIC ni otro valor como precio interno. Devuelve fecha ISO AAAA-MM-DD. Si falta el precio o su fecha, responde con valor 0 y fecha vacia."}],
         "onlyMainContent": True, "checkPromptInjection": True}).encode("utf-8")
     solicitud = Request("https://api.firecrawl.dev/v2/scrape", data=payload,
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}, method="POST")
@@ -608,7 +610,7 @@ def api_precio_fnc():
         if valor <= 0 or dato.get("unidad") != "COP/carga de 125 kg":
             raise ValueError("La pagina no devolvio el precio oficial con unidad y fecha verificables.")
         salida = {"valor": valor, "fecha": fecha, "fuente": "Federacion Nacional de Cafeteros",
-                  "unidad": "COP/carga de 125 kg", "url": "https://federaciondecafeteros.org/",
+                  "unidad": "COP/carga de 125 kg", "url": URL_PRECIO_FNC,
                   "consultado": datetime.now(timezone.utc).isoformat(timespec="minutes")}
         bd.guardar_indicador_sector("precio_interno_fnc", valor, salida["unidad"], fecha, salida["fuente"],
             salida["url"], "Precio interno de referencia FNC para café pergamino seco por carga de 125 kg.",
@@ -637,10 +639,10 @@ def api_precio_ico():
         "fecha": {"type": "string", "format": "date"},
         "unidad": {"type": "string", "enum": ["US cents/lb"]},
     }, "required": ["valor", "fecha", "unidad"], "additionalProperties": False}
-    url = "https://www.ico.org/resources/public-market-information/"
+    url = URL_PRECIO_ICO
     payload = json.dumps({"url": url, "formats": [{"type": "json", "schema": esquema,
-        "prompt": "Extrae unicamente el valor diario mas reciente del ICO Composite Indicator Price (I-CIP), su fecha y unidad US cents/lb. No uses una media mensual ni futuros de bolsa. Si la pagina no muestra valor y fecha concretos, devuelve cero y fecha vacia."}],
-        "onlyMainContent": True, "checkPromptInjection": True}).encode("utf-8")
+        "prompt": "En el indicador diario I-CIP de la International Coffee Organization, extrae el valor compuesto mas reciente, la fecha que aparece asociada a ese valor y la unidad US cents/lb. No uses cambio porcentual, precio de un grupo de cafe, futuros ni promedio mensual. Devuelve fecha ISO AAAA-MM-DD. Si la pagina no muestra valor y fecha concretos, devuelve cero y fecha vacia."}],
+        "onlyMainContent": True, "checkPromptInjection": True, "waitFor": 5000}).encode("utf-8")
     solicitud = Request("https://api.firecrawl.dev/v2/scrape", data=payload,
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}, method="POST")
     try:
