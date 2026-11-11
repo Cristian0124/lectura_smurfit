@@ -1,18 +1,83 @@
-"""Escaneo programado de paginas institucionales mediante Firecrawl."""
+"""Escaneo ligero de publicaciones institucionales sin API de pago."""
 import json
 import logging
 import os
+import re
 import unicodedata
 from flask import session
 from datetime import date, datetime, timedelta, timezone
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urljoin
+from html.parser import HTMLParser
 
 import bd
 from app import app, contiene_referencia_cafe, esquema_senales_estructuradas, mercado
 
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
+
+
+class _ListadoHTML(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.links, self.text, self.anchor, self.hidden = [], [], None, 0
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag in ("script", "style", "noscript"): self.hidden += 1
+        if tag == "a" and attrs.get("href"): self.anchor = [attrs["href"], []]
+    def handle_endtag(self, tag):
+        if tag in ("script", "style", "noscript") and self.hidden: self.hidden -= 1
+        if tag == "a" and self.anchor:
+            self.links.append((self.anchor[0], " ".join(self.anchor[1])))
+            self.anchor = None
+    def handle_data(self, data):
+        if self.hidden or not data.strip(): return
+        value = " ".join(data.split())
+        self.text.append(value)
+        if self.anchor is not None: self.anchor[1].append(value)
+
+
+def _leer_html(url):
+    solicitud = Request(url, headers={"User-Agent": "RadarCafetero/1.0"})
+    with urlopen(solicitud, timeout=12) as respuesta:
+        if "html" not in respuesta.headers.get("Content-Type", ""): return ""
+        return respuesta.read(1_500_000).decode("utf-8", "replace")
+
+
+def _analizar_pagina_directa(fuente):
+    """Revisa un listado oficial y hasta tres enlaces cafeteros del mismo dominio."""
+    listado = _ListadoHTML()
+    listado.feed(_leer_html(fuente["url"]))
+    enlaces = []
+    for href, titulo in listado.links:
+        url = urljoin(fuente["url"], href)
+        texto = unicodedata.normalize("NFKD", titulo + " " + url).encode("ascii", "ignore").decode().lower()
+        if (titulo and _url_del_dominio(url, fuente["url"]) and url.rstrip("/") != fuente["url"].rstrip("/")
+                and contiene_referencia_cafe(texto) and not bd.pagina_fuente_ya_revisada(url)):
+            enlaces.append((url, titulo[:200]))
+    salida = []
+    for url, titulo in enlaces[:3]:
+        try:
+            articulo = _ListadoHTML()
+            articulo.feed(_leer_html(url))
+            texto = " ".join(articulo.text)
+            normal = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode().lower()
+            if not contiene_referencia_cafe(normal): continue
+            if any(k in normal for k in ("lluvia", "temperatura", "clima", "cultivo", "cosecha", "plaga")):
+                clasificado = "Ecológico"
+            elif any(k in normal for k in ("decreto", "resolucion", "politica", "ministerio", "gremio", "federacion")):
+                clasificado = "Político"
+            else:
+                clasificado = "Económico"
+            salida.append({"titulo": titulo, "descripcion": texto[:1800],
+                "implicaciones": "Publicación oficial relacionada con café; validar su alcance antes de decidir.",
+                "factor": clasificado, "ambito": "Sector", "tipo": "Información de seguimiento",
+                "horizonte": "Corto plazo", "impacto": 1, "probabilidad": 1,
+                "justificacion": "Lectura directa de página oficial; sin inferencia de impactos.",
+                "evidencia": texto[:500], "url_original": url, "tipo_publicacion": "Otro"})
+        finally:
+            bd.registrar_pagina_fuente(url, fuente["id"], datetime.now(timezone.utc).isoformat(timespec="seconds"))
+    return salida
 
 
 def _url_del_dominio(url, url_fuente):
@@ -222,11 +287,6 @@ def ejecutar_escaneo():
     ejecucion_id = bd.iniciar_ejecucion_escaneo(inicio)
     procesadas = nuevas = duplicadas = actualizadas = errores = 0
     mensajes = []
-    api_key = os.environ.get("FIRECRAWL_API_KEY", "").strip()
-    if not api_key:
-        bd.finalizar_ejecucion_escaneo(ejecucion_id, datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                                      0, 0, 0, 0, 1, "FIRECRAWL_API_KEY no configurada")
-        raise RuntimeError("FIRECRAWL_API_KEY no esta configurada")
     for fuente in bd.fuentes_para_escaneo():
         ultima = fuente["ultima_revision"]
         try:
@@ -240,7 +300,7 @@ def ejecutar_escaneo():
             continue
         procesadas += 1
         try:
-            extraccion = _analizar_pagina_fuente(fuente, api_key)
+            extraccion = _analizar_pagina_directa(fuente)
             agregado, repetido, modificado = _guardar_senales(fuente, extraccion, now)
             nuevas += agregado
             duplicadas += repetido

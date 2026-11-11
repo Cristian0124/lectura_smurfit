@@ -36,11 +36,7 @@ if errorlevel 1 (
 
 :iniciar
 start "Radar de entorno - servidor" cmd /k ""%PYTHON%" app.py"
-if defined FIRECRAWL_API_KEY (
-    powershell -NoProfile -Command "Start-Process -FilePath '%PYTHON%' -ArgumentList 'worker_local.py' -WorkingDirectory '%~dp0' -WindowStyle Hidden -RedirectStandardOutput (Join-Path $env:TEMP 'radar-cafetero-worker.out.log') -RedirectStandardError (Join-Path $env:TEMP 'radar-cafetero-worker.err.log')"
-) else (
-    echo FIRECRAWL_API_KEY no esta configurada; el worker local no iniciara.
-)
+powershell -NoProfile -Command "Start-Process -FilePath '%PYTHON%' -ArgumentList 'worker_local.py' -WorkingDirectory '%~dp0' -WindowStyle Hidden -RedirectStandardOutput (Join-Path $env:TEMP 'radar-cafetero-worker.out.log') -RedirectStandardError (Join-Path $env:TEMP 'radar-cafetero-worker.err.log')"
 timeout /t 3 /nobreak >nul
 start "" http://127.0.0.1:5000
 endlocal

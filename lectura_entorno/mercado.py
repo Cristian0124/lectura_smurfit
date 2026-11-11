@@ -2,9 +2,11 @@
 import csv
 import io
 import json
+import re
 import time
 import zipfile
 from datetime import datetime
+from html.parser import HTMLParser
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -13,12 +15,71 @@ URL_FAO_PRECIOS = "https://bulks-faostat.fao.org/production/Prices_E_All_Data_(N
 URL_FAO_PP = "https://www.fao.org/faostat/en/#data/PP"
 _cache_trm = {"vence": 0, "dato": None}
 _cache_cafe = {"vence": 0, "datos": None}
+_cache_precios_fnc = {"vence": 0, "datos": None}
 
 
 def _leer(url, timeout=15):
     req = Request(url, headers={"User-Agent": "RadarCafetero/1.0"})
     with urlopen(req, timeout=timeout) as respuesta:
         return respuesta.read()
+
+
+class _TextoVisible(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.partes = []
+        self.ocultar = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("script", "style", "noscript", "svg"):
+            self.ocultar += 1
+
+    def handle_endtag(self, tag):
+        if tag in ("script", "style", "noscript", "svg") and self.ocultar:
+            self.ocultar -= 1
+
+    def handle_data(self, data):
+        if not self.ocultar and data.strip():
+            self.partes.append(data.strip())
+
+
+def _numero_referencia(texto, decimal=False):
+    valor = texto.strip().replace(" ", "")
+    if decimal:
+        if "," in valor and "." in valor:
+            valor = valor.replace(".", "").replace(",", ".")
+        else:
+            valor = valor.replace(",", ".")
+        return float(valor)
+    return float(re.sub(r"\D", "", valor))
+
+
+def obtener_precios_fnc():
+    """Read FNC's public daily internal and ICE New York reference prices without a paid API."""
+    ahora = time.time()
+    if _cache_precios_fnc["datos"] and ahora < _cache_precios_fnc["vence"]:
+        return _cache_precios_fnc["datos"]
+    url = "https://federaciondecafeteros.org/aprenda-a-vender-su-cafe/"
+    parser = _TextoVisible()
+    parser.feed(_leer(url, timeout=20).decode("utf-8", "replace"))
+    texto = re.sub(r"\s+", " ", " ".join(parser.partes))
+
+    def extraer(etiqueta, decimal=False):
+        coincidencia = re.search(etiqueta + r"\s*:\s*\$?\s*([\d.,]+)", texto, re.IGNORECASE)
+        if not coincidencia:
+            raise ValueError(f"FNC no publico {etiqueta} en la pagina consultada")
+        alrededor = texto[coincidencia.end():coincidencia.end() + 300]
+        fecha = re.search(r"Fecha\s*:\s*(\d{4}-\d{2}-\d{2})", alrededor, re.IGNORECASE)
+        if not fecha:
+            raise ValueError(f"FNC no publico la fecha de {etiqueta}")
+        return {"valor": _numero_referencia(coincidencia.group(1), decimal), "fecha": fecha.group(1)}
+
+    dato = {"precio_interno": extraer("Precio interno de referencia"),
+            "bolsa_ny": extraer("Bolsa de NY", decimal=True),
+            "fuente": "Federacion Nacional de Cafeteros",
+            "url": url, "consultado": datetime.now().isoformat(timespec="minutes")}
+    _cache_precios_fnc.update(datos=dato, vence=ahora + 600)
+    return dato
 
 
 def obtener_dolar():

@@ -360,6 +360,22 @@ def analizar_pagina():
             flash("Ingresa una URL publica valida que comience con https://")
             return render_template("analizar.html", url=url)
 
+        try:
+            import worker
+            fuente = bd.buscar_fuente_por_url(url)
+            if not fuente:
+                fuente_id = bd.crear_fuente_analizada(f"Fuente consultada ({hostname})", url)
+                fuente = {"id": fuente_id, "nombre": hostname, "url": url}
+            senales = worker._analizar_pagina_directa(fuente)
+            nuevas, repetidas, actualizadas = worker._guardar_senales(
+                fuente, senales, datetime.now(timezone.utc))
+            flash(f"Consulta directa terminada: {nuevas} novedades nuevas, {actualizadas} actualizadas y {repetidas} sin cambios. No se usaron créditos de Firecrawl.")
+            return redirect(url_for("analisis_cafetero"))
+        except Exception as error:
+            app.logger.warning("No fue posible leer directamente %s (%s)", hostname, type(error).__name__)
+            flash("No fue posible leer esa página directamente. Si ofrece un RSS o listado HTML público, agrégalo como fuente institucional.")
+            return render_template("analizar.html", url=url)
+
         api_key = os.environ.get("FIRECRAWL_API_KEY", "").strip()
         if not api_key:
             flash("Falta configurar FIRECRAWL_API_KEY en el entorno del servidor.")
@@ -581,6 +597,19 @@ def api_estado_actualizacion():
 def api_precio_fnc():
     if "usuario" not in session:
         return {"error": "La sesion vencio. Inicia sesion de nuevo."}, 401
+    try:
+        dato = mercado.obtener_precios_fnc()
+        valor = dato["precio_interno"]["valor"]
+        fecha = dato["precio_interno"]["fecha"]
+        salida = {"valor": valor, "fecha": fecha, "fuente": dato["fuente"],
+                  "unidad": "COP/carga de 125 kg", "url": dato["url"],
+                  "consultado": dato["consultado"]}
+        bd.guardar_indicador_sector("precio_interno_fnc", valor, salida["unidad"], fecha,
+            salida["fuente"], salida["url"], "Precio interno de referencia publicado por la FNC.", salida["consultado"])
+        return salida
+    except Exception as error:
+        app.logger.warning("Consulta directa FNC no disponible: %s", type(error).__name__)
+        return {"error": "No fue posible leer el precio oficial FNC en este momento."}, 503
     if _cache_precio_fnc["dato"] and datetime.now(timezone.utc).timestamp() < _cache_precio_fnc["vence"]:
         return _cache_precio_fnc["dato"]
     api_key = os.environ.get("FIRECRAWL_API_KEY", "").strip()
@@ -629,6 +658,18 @@ def api_precio_fnc():
 def api_precio_ico():
     if "usuario" not in session:
         return {"error": "La sesion vencio. Inicia sesion de nuevo."}, 401
+    try:
+        dato = mercado.obtener_precios_fnc()
+        bolsa = dato["bolsa_ny"]
+        salida = {"valor": bolsa["valor"], "fecha": bolsa["fecha"], "unidad": "US cents/lb",
+                  "fuente": "Federación Nacional de Cafeteros · Bolsa de Nueva York",
+                  "url": dato["url"], "consultado": dato["consultado"]}
+        bd.guardar_indicador_sector("precio_ico_icip", bolsa["valor"], salida["unidad"], bolsa["fecha"],
+            salida["fuente"], salida["url"], "Referencia diaria de Bolsa de Nueva York mostrada por la FNC; no es el indicador I-CIP de ICO.", salida["consultado"])
+        return salida
+    except Exception as error:
+        app.logger.warning("Consulta directa FNC/NY no disponible: %s", type(error).__name__)
+        return {"error": "No fue posible leer la referencia internacional publicada por FNC."}, 503
     if _cache_precio_ico["dato"] and datetime.now(timezone.utc).timestamp() < _cache_precio_ico["vence"]:
         return _cache_precio_ico["dato"]
     api_key = os.environ.get("FIRECRAWL_API_KEY", "").strip()
