@@ -59,7 +59,9 @@ def obtener_precios_fnc():
     ahora = time.time()
     if _cache_precios_fnc["datos"] and ahora < _cache_precios_fnc["vence"]:
         return _cache_precios_fnc["datos"]
-    url = "https://federaciondecafeteros.org/aprenda-a-vender-su-cafe/"
+    # The methodology page does not publish the live quotes. The FNC homepage
+    # exposes both daily values and their publication dates in its HTML.
+    url = "https://federaciondecafeteros.org/inicio/"
     parser = _TextoVisible()
     parser.feed(_leer(url, timeout=20).decode("utf-8", "replace"))
     texto = re.sub(r"\s+", " ", " ".join(parser.partes))
@@ -68,7 +70,7 @@ def obtener_precios_fnc():
         coincidencia = re.search(etiqueta + r"\s*:\s*\$?\s*([\d.,]+)", texto, re.IGNORECASE)
         if not coincidencia:
             raise ValueError(f"FNC no publico {etiqueta} en la pagina consultada")
-        alrededor = texto[coincidencia.end():coincidencia.end() + 300]
+        alrededor = texto[coincidencia.end():coincidencia.end() + 600]
         fecha = re.search(r"Fecha\s*:\s*(\d{4}-\d{2}-\d{2})", alrededor, re.IGNORECASE)
         if not fecha:
             raise ValueError(f"FNC no publico la fecha de {etiqueta}")

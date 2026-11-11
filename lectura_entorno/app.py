@@ -21,7 +21,7 @@ app = Flask(__name__)
 _cache_precio_fnc = {"vence": 0, "dato": None}
 _cache_precio_ico = {"vence": 0, "dato": None}
 _actualizacion_radar_lock = threading.Lock()
-URL_PRECIO_FNC = "https://federaciondecafeteros.org/aprenda-a-vender-su-cafe/"
+URL_PRECIO_FNC = "https://federaciondecafeteros.org/inicio/"
 URL_PRECIO_ICO = "https://ico.org/stats/"
 SECRET_KEY = os.environ.get("SECRET_KEY", "").strip()
 if os.environ.get("DATABASE_URL") and not SECRET_KEY:
