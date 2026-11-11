@@ -526,17 +526,19 @@ def api_cafe():
     if "usuario" not in session:
         return {"error": "La sesion vencio. Inicia sesion de nuevo."}, 401
     try:
-        dato = mercado.obtener_precios_cafe()
-        colombia = next((p for p in dato["paises"] if p["pais"] == "Colombia"), None)
-        if colombia:
-            ultimo = colombia["ultimo"]
-            bd.guardar_indicador_sector("precio_productor_faostat_colombia", ultimo["value"], ultimo["unit"],
-                str(ultimo["year"]), dato["fuente"], dato["url"], "Precio anual al productor; no es cotizacion diaria.",
-                datetime.now(timezone.utc).isoformat(timespec="minutes"))
-        return dato
+        dato = bd.obtener_indicador_sector("precio_productor_faostat_colombia")
+        if not dato:
+            return {"paises": [], "estado": "pendiente",
+                    "fuente": "FAO, FAOSTAT - Producer Prices (Coffee, green)",
+                    "url": mercado.URL_FAO_PP}
+        ultimo = {"value": float(dato["valor"]), "unit": dato["unidad"],
+                  "year": int(str(dato["fecha"])[:4])}
+        return {"paises": [{"pais": "Colombia", "ultimo": ultimo, "historico": []}],
+                "estado": "actualizado", "fuente": dato["fuente"], "url": dato["url"],
+                "consultado": dato["consultado"]}
     except Exception:
-        app.logger.exception("No se pudieron consultar precios de cafe en FAOSTAT")
-        return {"error": "FAOSTAT no esta disponible ahora. Intenta mas tarde."}, 503
+        app.logger.exception("No se pudo leer el precio FAOSTAT guardado")
+        return {"error": "No se pudo leer el precio guardado de FAOSTAT."}, 503
 
 
 def _ejecutar_actualizacion_radar():

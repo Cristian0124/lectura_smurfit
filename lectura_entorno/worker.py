@@ -10,7 +10,7 @@ from urllib.request import Request, urlopen
 from urllib.parse import urlsplit
 
 import bd
-from app import app, contiene_referencia_cafe, esquema_senales_estructuradas
+from app import app, contiene_referencia_cafe, esquema_senales_estructuradas, mercado
 
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
 
@@ -186,15 +186,28 @@ def _consultar_indicadores_programados(now):
             continue
         estado = "error"
         try:
-            with app.test_request_context("/"):
-                session["usuario"] = "worker-firecrawl"
-                resultado = app.view_functions[nombre]()
-            if isinstance(resultado, tuple) and len(resultado) > 1 and resultado[1] >= 400:
-                errores += 1
-                logging.warning("Indicador %s no disponible: %s", nombre, (resultado[0] or {}).get("error", "error HTTP"))
-            else:
+            if clave == "precio_productor_faostat_colombia":
+                dato = mercado.obtener_precios_cafe()
+                colombia = next((pais for pais in dato["paises"] if pais["pais"] == "Colombia"), None)
+                if not colombia:
+                    raise ValueError("FAOSTAT no devolvio datos de precio para Colombia")
+                ultimo = colombia["ultimo"]
+                bd.guardar_indicador_sector(clave, ultimo["value"], ultimo["unit"], str(ultimo["year"]),
+                    dato["fuente"], dato["url"], "Precio anual al productor; no es cotizacion diaria.",
+                    datetime.now(timezone.utc).isoformat(timespec="minutes"))
                 estado = "correcto"
                 logging.info("Indicador actualizado: %s", nombre)
+            else:
+                with app.test_request_context("/"):
+                    session["usuario"] = "worker-firecrawl"
+                    resultado = app.view_functions[nombre]()
+                if isinstance(resultado, tuple) and len(resultado) > 1 and resultado[1] >= 400:
+                    errores += 1
+                    logging.warning("Indicador %s no disponible: %s", nombre,
+                        (resultado[0] or {}).get("error", "error HTTP"))
+                else:
+                    estado = "correcto"
+                    logging.info("Indicador actualizado: %s", nombre)
         except Exception as error:
             errores += 1
             logging.exception("No se pudo actualizar el indicador %s (%s)", nombre, type(error).__name__)
