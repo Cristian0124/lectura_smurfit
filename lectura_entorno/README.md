@@ -6,7 +6,7 @@ Aplicación Flask para vigilar acontecimientos PESTEL que puedan afectar la prod
 
 - `app.py`: rutas Flask, login, permisos, CSRF, formularios y consumo de Firecrawl.
 - `bd.py`: SQLite local o PostgreSQL (Neon), con migraciones aditivas y trazabilidad de ejecución.
-- `worker.py`: proceso separado que consulta las fuentes habilitadas con Firecrawl y guarda publicaciones nuevas.
+- `worker.py`: proceso separado que mapea publicaciones oficiales con Firecrawl, extrae páginas nuevas y guarda novedades cafeteras.
 - `fuentes_cafeteras.py`: catálogo institucional inicial, agregado sin reemplazar fuentes existentes.
 - `mercado.py`: consultas estructuradas de TRM de datos.gov.co y precios anuales al productor de café verde en FAOSTAT.
 - `excel_export.py` y `pdf_export.py`: informes de las señales filtradas en el Panel.
@@ -14,7 +14,7 @@ Aplicación Flask para vigilar acontecimientos PESTEL que puedan afectar la prod
 
 ## Ejecución local
 
-En Windows, ejecuta `iniciar.bat`. También puedes usar:
+En Windows, ejecuta `iniciar.bat`. Cuando `FIRECRAWL_API_KEY` está configurada, el script inicia además un worker local oculto que revisa las fuentes cada 10 minutos. También puedes usar:
 
 ```sh
 pip install -r requirements.txt
@@ -31,15 +31,15 @@ SQLite usa `entorno.db` por defecto; configura `DB` para cambiar su ruta. En una
 - `FIRECRAWL_API_KEY`: análisis de URL, consulta de precio FNC y revisión programada.
 - `INITIAL_ADMIN_USER` y `INITIAL_ADMIN_PASSWORD`: primer administrador de una base PostgreSQL vacía; mínimo 12 caracteres para la clave.
 
-No incluyas credenciales en el repositorio. Firecrawl aplica límites y créditos; el análisis estructurado y la verificación de inyección consumen cuota. La frecuencia por fuente se puede ajustar en **Fuentes** a 30 min, 1 h, 3 h, 6 h o 24 h. El Cron Job de Render se despierta cada hora y procesa las fuentes que ya vencieron por su frecuencia configurada. Los indicadores FNC e ICO se revisan cada seis horas por defecto (`RADAR_INDICADORES_FRECUENCIA_MINUTOS`) y se leen del almacenamiento al abrir el Panel, sin pagar otra extracción por cada visita.
+No incluyas credenciales en el repositorio. Firecrawl aplica límites y créditos; mapear sitios y extraer páginas estructuradas consume cuota. El Cron Job de Render se programa cada 10 minutos (`*/10 * * * *`). En cada fuente se priorizan publicaciones cafeteras y se extraen hasta tres páginas nuevas por ejecución (`RADAR_MAX_PAGINAS_POR_FUENTE`). Los precios FNC, ICO y TRM se consultan cada 10 minutos por defecto; FAOSTAT se revisa diariamente porque su serie es anual. La cadencia indica cuándo consulta el sistema, no cuándo una institución publica.
 
 ## Render y Neon
 
 `render.yaml` define el servicio web y un Cron Job separado. Ambos requieren `DATABASE_URL`, `FIRECRAWL_API_KEY` y una `SECRET_KEY`; la inicialización de una base vacía requiere además las dos variables `INITIAL_ADMIN_*`. Render cron ejecuta en UTC. Configura los valores en ambos servicios antes de desplegar. La conexión real a Neon y Firecrawl depende de las credenciales del entorno de Render.
 
-El Worker revisa la URL registrada para cada fuente mediante una extracción estructurada de Firecrawl. Las páginas institucionales tienen diseños y mecanismos de publicación distintos: un sitio que no exponga sus publicaciones recientes en esa URL puede requerir configurar una URL más específica o una integración oficial/API/feed. El catálogo no afirma que una extracción haya funcionado: muestra última revisión, ejecuciones, errores y señales guardadas. Las publicaciones manuales y automáticas se distinguen en la base.
+El Worker usa Firecrawl Map para descubrir enlaces institucionales y Scrape para extraer páginas nuevas dentro del dominio de cada fuente. Guarda las URL ya consultadas para no volver a gastar créditos en la misma publicación. Cada página se analiza con criterios explícitos de relación con cultivo, producción, calidad, clima en zonas productoras, costos, precio, compra, comercialización o exportación del café. Las alertas ambientales generales solo se guardan cuando la fuente y el análisis documentan su efecto en cafetales. La vista **Fuentes de información** muestra únicamente el enlace y la fecha de revisión; su fecha corresponde a la última consulta, no confirma una publicación nueva.
 
-La extracción solo se guarda cuando Firecrawl devuelve una señal con campos válidos. La aplicación no sigue instrucciones incluidas en páginas externas, valida las URLs de publicación contra el dominio institucional y conserva fecha de publicación, revisión, evidencia y fuente. El deduplicado se basa en fuente, título y factor PESTEL.
+La extracción solo se guarda cuando Firecrawl devuelve una señal con campos válidos. La aplicación no sigue instrucciones incluidas en páginas externas, valida las URLs de publicación contra el dominio institucional y conserva fecha de publicación, revisión, evidencia y fuente. El deduplicado se basa en fuente, título y factor PESTEL. Las variables de lluvia y temperatura solo se muestran cuando su publicación oficial incluye valor, unidad, fecha y región; no se estima el factor de rendimiento comercial sin análisis físico del lote.
 
 ## Indicadores y sus límites
 
@@ -57,7 +57,7 @@ PESTEL analiza factores políticos, económicos, sociales, tecnológicos, ecoló
 
 ## Verificación
 
-Desde la carpeta `lectura_entorno`, ejecuta `python -m unittest discover -s tests -v`. Estas pruebas cubren migración aditiva, persistencia, permisos, filtros, exportaciones, esquema de análisis, extracción del precio e idempotencia del Worker con respuestas HTTP simuladas; no prueban credenciales ni disponibilidad externa de Neon, Firecrawl, FNC, ICO o FAOSTAT.
+Desde la carpeta `lectura_entorno`, ejecuta `python -m unittest discover -s tests -v`. Estas pruebas cubren migración aditiva, persistencia, permisos, filtros, exportaciones, análisis cafetero, descubrimiento de páginas, deduplicado e idempotencia del Worker con respuestas HTTP simuladas; no prueban credenciales ni disponibilidad externa de Neon, Firecrawl, FNC, ICO o FAOSTAT.
 
 ## Referencias institucionales
 

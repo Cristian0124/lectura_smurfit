@@ -53,6 +53,23 @@ class RadarAppTests(unittest.TestCase):
         self.assertEqual(panel.status_code, 200)
         self.assertIn("Lluvias intensas en zona cafetera", panel.text)
         self.assertNotIn("Mercado y costos", panel.text)
+        analisis_cafetero = self.client.get("/analisis-cafetero")
+        self.assertEqual(analisis_cafetero.status_code, 200)
+        self.assertIn("Análisis Cafetero", analisis_cafetero.text)
+        self.assertIn("Análisis de Entorno", analisis_cafetero.text)
+        self.assertIn("TRM oficial", analisis_cafetero.text)
+        self.assertIn("Precio interno de referencia", analisis_cafetero.text)
+        self.assertIn("cultivo, la producción, la calidad, los costos y la venta de café", analisis_cafetero.text)
+        self.assertIn('href="/analisis-cafetero">Análisis Cafetero</a>', analisis_cafetero.text)
+        self.assertIn("Novedades agrícolas y ambientales", analisis_cafetero.text)
+        self.assertIn("Novedades políticas y económicas", analisis_cafetero.text)
+        self.assertIn("Factor de rendimiento del café", analisis_cafetero.text)
+        fuentes = self.client.get("/fuentes")
+        self.assertEqual(fuentes.status_code, 200)
+        self.assertIn("Enlace consultado", fuentes.text)
+        self.assertIn("Fecha de revisión", fuentes.text)
+        self.assertNotIn("Automatización", fuentes.text)
+        self.assertNotIn("Agregar fuente", fuentes.text)
         excel = self.client.get("/exportar.xlsx?factor=Ecol%C3%B3gico")
         pdf = self.client.get("/exportar.pdf?factor=Ecol%C3%B3gico")
         self.assertEqual(excel.status_code, 200)
@@ -66,6 +83,9 @@ class RadarAppTests(unittest.TestCase):
             fuentes = bd.listar_fuentes()
         self.assertGreaterEqual(len(fuentes), 12)
         self.assertTrue(any("IDEAM" in fuente["nombre"] for fuente in fuentes))
+        oficiales = [fuente for fuente in fuentes if str(fuente["tipo"]).startswith("Entidad oficial")]
+        self.assertTrue(all(fuente["escaneo_habilitado"] for fuente in oficiales))
+        self.assertTrue(all(fuente["frecuencia_minutos"] == 10 for fuente in oficiales))
         schema = esquema_senales_estructuradas()["properties"]["senales"]["items"]
         self.assertEqual(schema["properties"]["factor"]["enum"], FACTORES)
         self.assertIn("Información de seguimiento", TIPOS)
@@ -127,9 +147,11 @@ class RadarAppTests(unittest.TestCase):
     def test_worker_guardar_y_deduplicar_sin_llamada_real(self):
         self._login()
         with app.app_context():
-            fuente = bd.buscar_fuente_por_url("https://www.ideam.gov.co/sala-de-prensa/boletines")
+            fuente_id = bd.buscar_fuente_por_url("https://www.ideam.gov.co/sala-de-prensa/boletines")["id"]
+            fuente = next(f for f in bd.fuentes_para_escaneo() if f["id"] == fuente_id)
             ahora = worker.datetime.now(worker.timezone.utc).isoformat(timespec="seconds")
-            for clave in ("precio_interno_fnc", "precio_ico_icip"):
+            for clave in ("precio_interno_fnc", "precio_ico_icip", "trm",
+                          "precio_productor_faostat_colombia"):
                 bd.registrar_intento_indicador(clave, ahora, "correcto")
         item = {"titulo": "Alerta lluvias zona cafetera", "descripcion": "Boletín de prueba institucional.",
             "implicaciones": "Posible afectación a cultivos.", "factor": "Ecológico", "ambito": "País o región",
@@ -139,14 +161,42 @@ class RadarAppTests(unittest.TestCase):
             "url_original": "https://www.ideam.gov.co/boletin-prueba", "impacto_produccion": "Riesgo por lluvia",
             "impacto_comercializacion": "No disponible"}
         payload = json.dumps({"success": True, "data": {"json": {"senales": [item]}}}).encode()
-        with app.app_context(), patch.object(worker, "urlopen", side_effect=lambda *args, **kwargs: io.BytesIO(payload)):
+        respuesta_mapa = json.dumps({"success": True, "links": [{"url":
+            "https://www.ideam.gov.co/boletin-prueba", "title": "Alerta lluvias zona cafetera"}]}).encode()
+        paginas_extraidas = []
+        def firecrawl_simulado(solicitud, *args, **kwargs):
+            if solicitud.full_url.endswith("/scrape"):
+                paginas_extraidas.append(solicitud.full_url)
+            contenido = respuesta_mapa if solicitud.full_url.endswith("/map") else payload
+            return io.BytesIO(contenido)
+        with app.app_context(), patch.object(worker, "urlopen", side_effect=firecrawl_simulado):
             resultado = worker.ejecutar_escaneo()
         self.assertEqual(resultado["errores"], 0)
         self.assertGreaterEqual(resultado["nuevas"], 1)
+        self.assertEqual(len(paginas_extraidas), 1)
+        with app.app_context():
+            self.assertTrue(bd.pagina_fuente_ya_revisada("https://www.ideam.gov.co/boletin-prueba"))
         with app.app_context():
             self.assertTrue(bd.senal_ya_registrada(fuente["id"], item["titulo"], item["factor"]))
             repetidas = worker._guardar_senales(fuente, [item], worker.datetime.now(worker.timezone.utc))
-        self.assertEqual(repetidas, (0, 1))
+        self.assertEqual(repetidas, (0, 1, 0))
+        item_actualizado = {**item, "descripcion": "Boletín de prueba institucional actualizado."}
+        with app.app_context():
+            cambios = worker._guardar_senales(
+                fuente, [item_actualizado], worker.datetime.now(worker.timezone.utc))
+            historial = bd._ejecutar(
+                "SELECT COUNT(*) FROM historial_senales WHERE senal_id IN "
+                "(SELECT id FROM senales WHERE fuente_id=? AND lower(titulo)=lower(?) AND factor=?)",
+                (fuente["id"], item["titulo"], item["factor"])).fetchone()[0]
+        self.assertEqual(cambios, (0, 0, 1))
+        self.assertEqual(historial, 1)
+
+    def test_worker_local_ejecuta_ciclo_fuera_de_ruta_web(self):
+        import worker_local
+        resultado = {"procesadas": 1, "nuevas": 0, "duplicadas": 0, "actualizadas": 0, "errores": 0}
+        with patch.object(worker, "ejecutar_escaneo", return_value=resultado) as ejecutar:
+            self.assertEqual(worker_local.ejecutar_ciclo_local(), resultado)
+        ejecutar.assert_called_once_with()
 
     def test_analisis_url_y_precio_fnc_simulados(self):
         import app as modulo_app

@@ -20,7 +20,7 @@ services:
     name: radar-cafetero-fuentes
     runtime: python
     rootDir: lectura_entorno
-    schedule: "0 * * * *"
+    schedule: "*/10 * * * *"
     buildCommand: pip install -r requirements.txt
     startCommand: python worker.py
     envVars:
@@ -35,4 +35,8 @@ services:
       - key: INITIAL_ADMIN_PASSWORD
         sync: false
       - key: RADAR_INDICADORES_FRECUENCIA_MINUTOS
-        value: "360"
+        value: "10"
+      - key: RADAR_MAX_PAGINAS_POR_FUENTE
+        value: "3"
+      - key: RADAR_FAOSTAT_FRECUENCIA_MINUTOS
+        value: "1440"

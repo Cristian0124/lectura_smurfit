@@ -4,6 +4,7 @@ FUENTES_CAFETERAS = [
     ("Ministerio de Agricultura y Desarrollo Rural", "Colombia", "https://www.minagricultura.gov.co/"),
     ("Federacion Nacional de Cafeteros", "Colombia", "https://federaciondecafeteros.org/"),
     ("IDEAM - boletines, pronosticos y alertas", "Colombia", "https://www.ideam.gov.co/sala-de-prensa/boletines"),
+    ("IDEAM DHIME - datos hidrometeorologicos historicos", "Colombia", "https://ideam.gov.co/dhime"),
     ("Ministerio de Ambiente y Desarrollo Sostenible", "Colombia", "https://www.minambiente.gov.co/"),
     ("DANE", "Colombia", "https://www.dane.gov.co/"),
     ("Banco de la Republica", "Colombia", "https://www.banrep.gov.co/"),
@@ -19,6 +20,4 @@ FUENTES_CAFETERAS = [
 def sembrar_catalogo(bd):
     """Agrega fuentes iniciales sin reemplazar el catalogo ni sus frecuencias."""
     for nombre, pais, url in FUENTES_CAFETERAS:
-        frecuencia = 60 if ("IDEAM" in nombre or "Federacion Nacional" in nombre
-                            or "Ministerio de Agricultura" in nombre or "Ministerio de Ambiente" in nombre) else 360
-        bd.asegurar_fuente_catalogo(nombre, f"Entidad oficial - {pais}", "Alta", url, frecuencia)
+        bd.asegurar_fuente_catalogo(nombre, f"Entidad oficial - {pais}", "Alta", url, 10)

@@ -98,6 +98,8 @@ def _crear_esquema(conexion):
                 errores INTEGER NOT NULL DEFAULT 0, detalle TEXT)""",
             """CREATE TABLE IF NOT EXISTS historial_senales(id BIGSERIAL PRIMARY KEY, senal_id BIGINT NOT NULL
                 REFERENCES senales(id), version TEXT NOT NULL, registrado TEXT NOT NULL)""",
+            """CREATE TABLE IF NOT EXISTS paginas_fuente(url TEXT PRIMARY KEY, fuente_id BIGINT NOT NULL
+                REFERENCES fuentes(id), revisada TEXT NOT NULL)""",
             """CREATE TABLE IF NOT EXISTS indicadores_sector(id BIGSERIAL PRIMARY KEY, clave TEXT NOT NULL,
                 valor NUMERIC NOT NULL, unidad TEXT NOT NULL, fecha TEXT NOT NULL, fuente TEXT NOT NULL,
                 url TEXT NOT NULL, metodologia TEXT, consultado TEXT NOT NULL, UNIQUE(clave,fecha))""",
@@ -155,6 +157,8 @@ def _crear_esquema(conexion):
             errores INTEGER NOT NULL DEFAULT 0, detalle TEXT);
         CREATE TABLE IF NOT EXISTS historial_senales(id INTEGER PRIMARY KEY, senal_id INTEGER NOT NULL
             REFERENCES senales(id), version TEXT NOT NULL, registrado TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS paginas_fuente(url TEXT PRIMARY KEY, fuente_id INTEGER NOT NULL
+            REFERENCES fuentes(id), revisada TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS indicadores_sector(id INTEGER PRIMARY KEY, clave TEXT NOT NULL,
             valor REAL NOT NULL, unidad TEXT NOT NULL, fecha TEXT NOT NULL, fuente TEXT NOT NULL,
             url TEXT NOT NULL, metodologia TEXT, consultado TEXT NOT NULL, UNIQUE(clave,fecha));
@@ -294,9 +298,12 @@ def marcar_revision_fuente(fuente_id, revisada):
     obtener_conexion().commit()
 
 
-def asegurar_fuente_catalogo(nombre, tipo, confiabilidad, url, frecuencia_minutos=60):
+def asegurar_fuente_catalogo(nombre, tipo, confiabilidad, url, frecuencia_minutos=10):
     existente = buscar_fuente_por_url(url)
     if existente:
+        _ejecutar("UPDATE fuentes SET escaneo_habilitado=?,frecuencia_minutos=? WHERE id=?",
+                  (True if USAR_POSTGRES else 1, frecuencia_minutos, existente["id"]))
+        obtener_conexion().commit()
         return existente["id"]
     try:
         fila = _ejecutar("INSERT INTO fuentes(nombre,tipo,confiabilidad,url,escaneo_habilitado,frecuencia_minutos) "
@@ -310,6 +317,17 @@ def asegurar_fuente_catalogo(nombre, tipo, confiabilidad, url, frecuencia_minuto
         if _es_integridad(error):
             return None
         raise
+
+
+def pagina_fuente_ya_revisada(url):
+    return _ejecutar("SELECT 1 FROM paginas_fuente WHERE url=?", (url,)).fetchone() is not None
+
+
+def registrar_pagina_fuente(url, fuente_id, revisada):
+    _ejecutar("INSERT INTO paginas_fuente(url,fuente_id,revisada) VALUES(?,?,?) "
+              "ON CONFLICT(url) DO UPDATE SET fuente_id=excluded.fuente_id,revisada=excluded.revisada",
+              (url, fuente_id, revisada))
+    obtener_conexion().commit()
 
 
 def listar_comentarios(senal_id):
