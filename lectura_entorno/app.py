@@ -1,7 +1,7 @@
 """Radar PESTEL de vigilancia técnica del café colombiano.
 Python + Flask; ejecutable en local y desplegable con PostgreSQL y Cron.
 """
-import hashlib, io, json, logging, os, re, secrets, threading, traceback
+import hashlib, io, json, logging, os, re, secrets, threading, traceback, unicodedata
 from datetime import date, datetime, timezone
 from functools import wraps
 from urllib.error import HTTPError, URLError
@@ -160,6 +160,19 @@ def nivel(p):
     return "Alto" if p >= 15 else "Medio" if p >= 8 else "Bajo"
 
 
+def contiene_referencia_cafe(texto):
+    texto = str(texto or "")
+    try:
+        corregido = texto.encode("latin-1").decode("utf-8")
+        if "Ã" in texto or "Â" in texto:
+            texto = corregido
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        pass
+    normalizado = "".join(c for c in unicodedata.normalize("NFKD", texto)
+                          if not unicodedata.combining(c)).lower()
+    return bool(re.search(r"\b(?:cafes?|cafeter\w*|caficult\w*|cafetal\w*|coffee)\b", normalizado))
+
+
 @app.template_filter("cop")
 def formato_cop(valor):
     return "$ " + format(float(valor), ",.0f").replace(",", ".")
@@ -243,6 +256,9 @@ def analisis_cafetero():
 
 def _mostrar_panel(vista):
     filas = consulta()
+    if vista == "analisis_cafetero":
+        filas = [s for s in filas if contiene_referencia_cafe(" ".join(str(s[campo] or "")
+            for campo in ("titulo", "descripcion", "implicaciones", "justificacion")))]
     hoy = date.today().isoformat()
     abiertas = [s for s in filas if s["estado"] != "Cerrada"]
     alertas = {"altas": [s for s in abiertas if s["puntaje"] >= 15],
