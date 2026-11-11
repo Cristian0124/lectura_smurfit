@@ -1,7 +1,7 @@
 """Radar PESTEL de vigilancia técnica del café colombiano.
 Python + Flask; ejecutable en local y desplegable con PostgreSQL y Cron.
 """
-import hashlib, io, json, logging, os, re, secrets, traceback
+import hashlib, io, json, logging, os, re, secrets, threading, traceback
 from datetime import date, datetime, timezone
 from functools import wraps
 from urllib.error import HTTPError, URLError
@@ -20,6 +20,7 @@ import fuentes_cafeteras
 app = Flask(__name__)
 _cache_precio_fnc = {"vence": 0, "dato": None}
 _cache_precio_ico = {"vence": 0, "dato": None}
+_actualizacion_radar_lock = threading.Lock()
 SECRET_KEY = os.environ.get("SECRET_KEY", "").strip()
 if os.environ.get("DATABASE_URL") and not SECRET_KEY:
     raise RuntimeError("SECRET_KEY debe configurarse en el entorno de producción.")
@@ -520,6 +521,40 @@ def api_cafe():
     except Exception:
         app.logger.exception("No se pudieron consultar precios de cafe en FAOSTAT")
         return {"error": "FAOSTAT no esta disponible ahora. Intenta mas tarde."}, 503
+
+
+def _ejecutar_actualizacion_radar():
+    try:
+        with app.app_context():
+            from worker import ejecutar_escaneo
+            resultado = ejecutar_escaneo()
+            app.logger.info("Actualizacion solicitada desde el panel terminada: %s", resultado)
+    except Exception:
+        app.logger.exception("No se pudo completar la actualizacion solicitada desde el panel")
+    finally:
+        _actualizacion_radar_lock.release()
+
+
+@app.route("/api/actualizar-radar", methods=["POST"])
+@requiere()
+def api_actualizar_radar():
+    if not _actualizacion_radar_lock.acquire(blocking=False):
+        return {"en_curso": True}, 202
+    try:
+        hilo = threading.Thread(target=_ejecutar_actualizacion_radar,
+                                name="actualizacion-radar", daemon=True)
+        hilo.start()
+    except Exception:
+        _actualizacion_radar_lock.release()
+        app.logger.exception("No se pudo iniciar la actualizacion del radar")
+        return {"error": "No se pudo iniciar la actualizacion."}, 503
+    return {"en_curso": True}, 202
+
+
+@app.route("/api/estado-actualizacion")
+@requiere()
+def api_estado_actualizacion():
+    return {"en_curso": _actualizacion_radar_lock.locked()}
 
 
 @app.route("/api/precio-fnc", methods=["POST"])

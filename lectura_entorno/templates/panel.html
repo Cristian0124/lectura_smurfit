@@ -34,6 +34,38 @@ async function getJson(url){const r=await fetch(url);const d=await r.json();if(!
 async function cargarTRM(){try{const d=await getJson('{{ url_for("api_dolar") }}');document.getElementById('precio-trm').textContent='$ '+formatMoney(d.cop_usd,2)+' COP/USD';document.getElementById('fecha-trm').textContent='Vigente desde '+d.fecha;}catch(e){document.getElementById('precio-trm').textContent='No disponible';}}
 async function cargarFAO(){try{const d=await getJson('{{ url_for("api_cafe") }}');const p=d.paises.find(x=>x.pais==='Colombia');document.getElementById('precio-faostat').textContent=p?'US$ '+formatMoney(p.ultimo.value,0)+'/t':'No hay dato de Colombia';document.getElementById('fecha-faostat').textContent=p?'Colombia · '+p.ultimo.year+' · precio anual al productor':'Consulta FAOSTAT';}catch(e){document.getElementById('precio-faostat').textContent='No disponible';}}
 Promise.all([cargarTRM(),cargarFAO()]);
+{% if vista == 'analisis_cafetero' %}
+async function solicitarRevisionRadar(){
+ const estado=document.getElementById('estado-indicadores');
+ if(sessionStorage.getItem('radarRecargaTrasRevision')==='1'){
+  sessionStorage.removeItem('radarRecargaTrasRevision');
+  return;
+ }
+ estado.textContent='Buscando novedades cafeteras en las fuentes oficiales…';
+ try{
+  const respuesta=await fetch('{{ url_for("api_actualizar_radar") }}',{
+   method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+   body:new URLSearchParams({csrf_token:'{{ csrf }}'})
+  });
+  const datos=await respuesta.json();
+  if(!respuesta.ok)throw Error(datos.error||'No se pudo iniciar la revisión.');
+  for(let intento=0;intento<48;intento++){
+   await new Promise(resolve=>setTimeout(resolve,10000));
+   const estadoRespuesta=await getJson('{{ url_for("api_estado_actualizacion") }}');
+   if(!estadoRespuesta.en_curso){
+    estado.textContent='Revisión terminada. Actualizando la información…';
+    sessionStorage.setItem('radarRecargaTrasRevision','1');
+    window.location.reload();
+    return;
+   }
+  }
+  estado.textContent='La revisión sigue en curso. Puedes dejar esta página abierta o actualizarla más tarde.';
+ }catch(error){
+  estado.textContent='No se pudo iniciar la búsqueda automática. Revisa los logs de Render.';
+ }
+}
+solicitarRevisionRadar();
+{% endif %}
 setTimeout(()=>window.location.reload(),600000);
 </script>
 {% endblock %}
